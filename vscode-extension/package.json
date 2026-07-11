@@ -1,0 +1,26 @@
+{
+  "name": "cognitive-load-detector",
+  "displayName": "Cognitive Load Detector",
+  "description": "EEG-based cognitive load detection",
+  "version": "0.0.1",
+  "engines": { "vscode": "^1.60.0" },
+  "activationEvents": ["*"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cognitiveLoad.getHelp",
+        "title": "Get Code Help"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cognitiveLoad.getHelp",
+          "when": "editorLangId == python",
+          "group": "navigation"
+        }
+      ]
+    }
+  }
+}

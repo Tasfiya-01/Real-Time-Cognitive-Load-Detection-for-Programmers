@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+node_modules/
+data/
+*.mat
+models/*.pkl
+*.vsix
+.DS_Store
+Thumbs.db
