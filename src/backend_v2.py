@@ -23,6 +23,22 @@ PB_START = time.time()
 EEG_STEP_S = 5
 print(f"EEG playback ready: {len(PB['y'])} windows ({len(PB['y']) * EEG_STEP_S / 60:.1f} min)")
 
+# Per-electrode theta/alpha for the head map, read from the same playback features.
+# Feature column of channel c, feature j = c*18 + j (theta j=1, alpha j=2); PB['X'] holds the kept columns.
+CH_NAMES = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
+_KEEP = list(np.load('models/keep_idx.npy'))
+_TH = [_KEEP.index(c * 18 + 1) for c in range(14)]
+_AL = [_KEEP.index(c * 18 + 2) for c in range(14)]
+_RATIO = np.log10((PB['X'][:, _TH] + 1e-12) / (PB['X'][:, _AL] + 1e-12))     # (windows, 14)
+_RATIO_Z = (_RATIO - _RATIO.mean(0)) / (_RATIO.std(0) + 1e-12)               # relative to this session
+
+# Java source of the 32 snippets P05 read (Peitek et al. replication package, CC BY-SA 4.0),
+# with cyclomatic complexity measured by lizard. Used by the dashboard's replay mode.
+import json
+with open('models/snippets.json', encoding='utf-8') as _f:
+    SNIPPETS = json.load(_f)
+print(f"Snippets loaded: {len(SNIPPETS)}")
+
 suggestion_cache = {}
 last_result  = {'code_hash': '', 'load_level': 'Low', 'complexity': None,
                 'cached_suggestion': 'Keep going!', 'last_suggestion_level': ''}
@@ -38,7 +54,14 @@ def current_eeg_state():
     """Brain state for the current playback window: P(engaged) from the programmer model."""
     i = int((time.time() - PB_START) / EEG_STEP_S) % len(PB['y'])
     p = float(prog_model.predict_proba(PB['X'][i:i + 1])[0, 1])
+    name = str(PB['snippet'][i])
+    reading = int(PB['y'][i]) == 1
+    sn = SNIPPETS.get(name, {})
     return {
+        # what P05 had on screen in this window: the Java snippet while reading, a fixation cross while resting
+        'on_screen':  {'name': name, 'code': sn.get('code', ''), 'cc_max': sn.get('cc_max'),
+                       'nloc': sn.get('nloc'), 'loops': sn.get('loops'), 'conditions': sn.get('conditions'),
+                       'level': sn.get('level')} if reading else None,
         'source':     'EEG playback (recorded, participant P05, unseen by the model)',
         'window':     i,
         'n_windows':  int(len(PB['y'])),
@@ -46,7 +69,9 @@ def current_eeg_state():
         'p_engaged':  round(p, 3),
         'state':      'Engaged' if p >= 0.5 else 'Resting',
         'true_phase': 'reading code' if int(PB['y'][i]) == 1 else 'rest',
-        'snippet':    str(PB['snippet'][i])
+        'snippet':    str(PB['snippet'][i]),
+        # theta/alpha per electrode, z-scored over the playback session (head map)
+        'channels':   {ch: round(float(_RATIO_Z[i, k]), 2) for k, ch in enumerate(CH_NAMES)}
     }
 
 
@@ -218,7 +243,7 @@ def predict():
     code = request.args.get('code', '')
     eeg  = current_eeg_state()
 
-    if code and len(code.strip()) > 5 and len(code) <= 2000:
+    if code and len(code.strip()) > 5 and len(code) < 2000:
         code_hash = str(hash(code.strip()))
         if code_hash == last_result['code_hash']:
             # Same code as last time — reuse everything, no new Ollama call

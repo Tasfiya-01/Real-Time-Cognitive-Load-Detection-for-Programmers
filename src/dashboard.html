@@ -4,307 +4,506 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cognitive Load Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
+:root {
+  --bg:      #17122B;   /* deep dusk */
+  --panel:   #211A3B;
+  --line:    #352C5A;
+  --ink:     #EEE8FA;
+  --muted:   #9C92BC;
+  --brain:   #FF6F91;   /* everything about the brain signal */
+  --code:    #3DD6D0;   /* everything about the code signal */
+  --alert:   #FFC857;
+  --radius-l: 22px;
+  --radius-s: 10px;
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; }
-.header { background: linear-gradient(135deg, #1a1f2e, #2d3561); padding: 20px 40px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #2d3561; }
-.header h1 { font-size: 22px; font-weight: 600; }
-.header span { font-size: 13px; color: #8892b0; }
-.badge { background: #00d4aa22; color: #00d4aa; padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid #00d4aa44; }
-.badge.warn { background: #f0a50022; color: #f0a500; border-color: #f0a50044; }
-.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 30px 40px; }
-.card { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
-.card h3 { font-size: 12px; color: #8892b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-.card .value { font-size: 32px; font-weight: 700; }
-.card .sub { font-size: 12px; color: #8892b0; margin-top: 5px; }
-.low { color: #00d4aa; }
-.medium { color: #f0a500; }
-.high { color: #ff4757; }
-.charts { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 0 40px 30px; }
-.chart-card { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
-.chart-card h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
-.bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 40px 30px; }
-.suggestion-box { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
-.suggestion-box h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
-.suggestion-text { background: #0f1117; border-radius: 8px; padding: 15px; font-size: 14px; color: #ccd6f6; border-left: 3px solid #00d4aa; line-height: 1.6; }
-.load-indicator { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
-.dot { width: 12px; height: 12px; border-radius: 50%; animation: pulse 1.5s infinite; }
-.dot.low  { background: #00d4aa; box-shadow: 0 0 8px #00d4aa; }
-.dot.medium { background: #f0a500; box-shadow: 0 0 8px #f0a500; }
-.dot.high { background: #ff4757; box-shadow: 0 0 8px #ff4757; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-.shap-list { list-style: none; }
-.shap-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #2d356133; font-size: 13px; }
-.shap-bar { height: 6px; background: linear-gradient(90deg, #00d4aa, #2d3561); border-radius: 3px; }
-.note { margin-top: 10px; font-size: 11px; color: #8892b0; }
-.bvi-section { margin: 0 40px 30px; background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
-.bvi-section h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
-.bvi-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: center; }
-.bvi-number { font-size: 48px; font-weight: 700; }
-.bvi-track { background: #0f1117; border-radius: 10px; height: 24px; overflow: hidden; }
-.bvi-fill { height: 100%; border-radius: 10px; transition: width 0.8s, background 0.5s; }
-.bvi-label { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #8892b0; }
-.bvi-formula { margin-top: 10px; font-size: 11px; color: #8892b0; font-style: italic; }
-.bvi-risk { font-size: 13px; font-weight: 600; margin-top: 8px; }
-.code-section { margin: 0 40px 20px; background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
-.code-section h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 10px; }
-.code-section textarea { width: 100%; height: 120px; background: #0f1117; color: #ccd6f6; border: 1px solid #2d3561; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; resize: vertical; outline: none; }
-.code-section textarea:focus { border-color: #00d4aa; }
-.profile-select { background: #1a1f2e; color: #ccd6f6; border: 1px solid #00d4aa44; border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; outline: none; }
-.profile-select:focus { border-color: #00d4aa; }
+html { background: var(--bg); }
+body {
+  font-family: 'Sora', system-ui, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 500px at 18% 8%, #2B1F4F 0%, transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible { outline: 2px solid var(--code); outline-offset: 3px; border-radius: 6px; }
+
+/* ---------- header ---------- */
+header {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 28px;
+  padding: 32px 48px 20px;
+}
+header h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+header p  { color: var(--muted); font-size: 14px; max-width: 62ch; margin-top: 6px; }
+.chips { margin-left: auto; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.chip {
+  font-size: 12.5px; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); background: #1C1634;
+}
+.chip b { color: var(--ink); font-weight: 600; }
+.chip.live b { color: var(--code); }
+.chip.off  b { color: var(--brain); }
+select.chip { color: var(--ink); cursor: pointer; font-family: inherit; }
+
+main { padding: 8px 48px 48px; display: grid; gap: 22px; }
+
+/* ---------- hero: head map + decision ---------- */
+.hero {
+  display: grid; grid-template-columns: minmax(320px, 1.05fr) 1fr; gap: 22px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-l);
+  padding: 28px;
+}
+.headwrap { position: relative; }
+.headwrap svg { width: 100%; max-width: 460px; display: block; margin: 0 auto; }
+.headcaption { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+.electrode circle { transition: fill .6s ease; }
+.electrode text { font-size: .085px; fill: var(--ink); text-anchor: middle; dominant-baseline: middle; font-family: 'Sora', sans-serif; font-weight: 600; }
+.blob { transition: opacity .8s ease; }
+
+.decide { display: flex; flex-direction: column; gap: 18px; justify-content: center; }
+.signal { display: grid; grid-template-columns: 6px 1fr; gap: 16px; align-items: stretch; }
+.signal .bar { border-radius: 3px; }
+.signal.brain .bar { background: var(--brain); }
+.signal.code  .bar { background: var(--code); }
+.signal h2 { font-size: 13px; font-weight: 400; color: var(--muted); }
+.signal .big { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.signal.brain .big { color: var(--brain); }
+.signal.code  .big { color: var(--code); }
+.signal .meta { font-size: 13px; color: var(--muted); }
+.meter { height: 6px; border-radius: 3px; background: #2D2550; margin-top: 8px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--brain); transition: width .6s ease; }
+
+.verdict {
+  margin-top: 4px; padding: 16px 18px; border-radius: var(--radius-s);
+  border: 1px solid var(--line); background: #1A1430; font-size: 15px;
+}
+.verdict strong { display: block; font-size: 17px; margin-bottom: 2px; }
+.verdict.alert { border-color: var(--alert); background: #2E2433; }
+.verdict.alert strong { color: var(--alert); }
+
+/* ---------- timeline ---------- */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 24px 28px; }
+.panel h2 { font-size: 17px; font-weight: 600; }
+.panel .lead { color: var(--muted); font-size: 13px; margin: 2px 0 14px; max-width: 75ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+.stats b { display: block; font-size: 22px; color: var(--ink); font-weight: 600; }
+
+/* ---------- work row ---------- */
+.work { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; }
+textarea {
+  width: 100%; min-height: 230px; resize: vertical;
+  background: #150F28; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-s);
+  padding: 14px 16px; font-family: Consolas, 'Courier New', monospace; font-size: 13.5px; line-height: 1.5;
+}
+textarea:focus { border-color: var(--code); outline: none; }
+.codefacts { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+.bvi { display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: center; }
+.bvi svg { width: 170px; height: 110px; }
+.bvi .risk { font-weight: 600; font-size: 16px; }
+.bvi .formula { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.suggest {
+  margin-top: 20px; padding: 16px 18px; border-radius: var(--radius-s); background: #150F28;
+  border-left: 3px solid var(--code); font-size: 15px;
+}
+.suggest small { display: block; color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+/* ---------- footnotes ---------- */
+.notes { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.shap { list-style: none; margin-top: 10px; }
+.shap li { display: grid; grid-template-columns: 190px 1fr 48px; gap: 10px; align-items: center; font-size: 13px; padding: 5px 0; }
+.shap span.b { height: 5px; border-radius: 3px; background: #4A3F7A; }
+.shap em { font-style: normal; color: var(--muted); text-align: right; }
+.small { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+
+.modes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.modes button {
+  font-family: inherit; font-size: 12.5px; padding: 6px 14px; border: 0; cursor: pointer;
+  background: #1C1634; color: var(--muted);
+}
+.modes button[aria-pressed="true"] { background: var(--code); color: #17122B; font-weight: 600; }
+pre.screen {
+  min-height: 230px; max-height: 380px; overflow: auto; margin: 0;
+  background: #150F28; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-s);
+  padding: 14px 16px; font-family: Consolas, 'Courier New', monospace; font-size: 13px; line-height: 1.5; white-space: pre;
+}
+pre.screen.rest { display: grid; place-items: center; color: var(--muted); font-family: 'Sora', sans-serif; font-size: 40px; white-space: normal; }
+.hidden { display: none !important; }
+
+@media (max-width: 980px) {
+  header, main { padding-left: 20px; padding-right: 20px; }
+  .hero, .work, .notes { grid-template-columns: 1fr; }
+  .chips { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
 </style>
 </head>
 <body>
 
-<div class="header">
+<header>
   <div>
-    <h1>🧠 Cognitive Load Monitor</h1>
-    <span>Code-complexity load monitor | EEG research: STEW Dataset | XGBoost</span>
+    <h1>Cognitive Load Monitor</h1>
+    <p>Brain state from EEG, combined with the complexity of the code being written. An alert appears only when both are high.</p>
   </div>
-  <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
-    <span class="badge">Model: XGBoost</span>
-    <span class="badge warn">Held-out accuracy: 40% (chance 40%)</span>
-    <select class="profile-select" id="profile-select" onchange="setProfile(this.value)">
-      <option value="Beginner">Beginner</option>
-      <option value="Intermediate" selected>Intermediate</option>
-      <option value="Expert">Expert</option>
+  <div class="chips">
+    <div class="modes" role="group" aria-label="Code source">
+      <button id="mode-replay" aria-pressed="true" onclick="setMode('replay')">Replay: P05's own code</button>
+      <button id="mode-live" aria-pressed="false" onclick="setMode('live')">Live: your code</button>
+    </div>
+    <span class="chip">EEG source <b>playback, participant P05</b></span>
+    <span class="chip">Brain model <b>AUC 0.86 on new programmers</b></span>
+    <select class="chip" id="profile-select" aria-label="Programmer profile" onchange="setProfile(this.value)">
+      <option value="Beginner">Profile: Beginner</option>
+      <option value="Intermediate" selected>Profile: Intermediate</option>
+      <option value="Expert">Profile: Expert</option>
     </select>
-    <span class="badge" id="status-badge">⟳ Connecting...</span>
+    <span class="chip" id="status-chip">Backend <b>connecting</b></span>
   </div>
-</div>
+</header>
 
-<div class="grid">
-  <div class="card">
-    <h3>Current Load</h3>
-    <div class="load-indicator">
-      <div class="dot low" id="load-dot"></div>
-      <div class="value" id="load-value">—</div>
+<main>
+
+  <!-- HERO: head map + decision -->
+  <section class="hero" aria-label="Current state">
+    <div class="headwrap">
+      <svg id="head" viewBox="-1.3 -1.3 2.6 2.6" role="img" aria-label="Head map of 14 EEG electrodes, coloured by frontal theta to alpha ratio">
+        <defs>
+          <filter id="glow" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation="0.035"/></filter>
+          <radialGradient id="blobGrad"><stop offset="0" stop-color="#FF6F91" stop-opacity=".55"/><stop offset="1" stop-color="#FF6F91" stop-opacity="0"/></radialGradient>
+          <clipPath id="skull"><circle r="1"/></clipPath>
+        </defs>
+        <!-- ears and nose -->
+        <path d="M-1.0,-0.16 C-1.14,-0.14 -1.14,0.16 -1.0,0.18" fill="none" stroke="#4A3F7A" stroke-width=".025"/>
+        <path d="M1.0,-0.16 C1.14,-0.14 1.14,0.16 1.0,0.18"  fill="none" stroke="#4A3F7A" stroke-width=".025"/>
+        <path d="M-0.12,-0.99 L0,-1.15 L0.12,-0.99" fill="none" stroke="#4A3F7A" stroke-width=".025" stroke-linejoin="round"/>
+        <circle r="1" fill="#1A1430" stroke="#4A3F7A" stroke-width=".025"/>
+        <g id="blobs" clip-path="url(#skull)"></g>
+        <line x1="0" y1="-1" x2="0" y2="1" stroke="#2D2550" stroke-width=".008"/>
+        <line x1="-1" y1="0" x2="1" y2="0" stroke="#2D2550" stroke-width=".008"/>
+        <g id="electrodes"></g>
+        <text id="head-state" x="0" y="0.02" text-anchor="middle" font-size=".16" font-weight="700" fill="#EEE8FA" font-family="Sora, sans-serif">—</text>
+        <text id="head-p" x="0" y="0.17" text-anchor="middle" font-size=".08" fill="#9C92BC" font-family="Sora, sans-serif">P(engaged)</text>
+      </svg>
+      <div class="headcaption">Each electrode shows theta/alpha in this 5-second window, relative to the session average. Front of head at top.</div>
     </div>
-    <div class="sub" id="load-sub">Waiting for data...</div>
-  </div>
-  <div class="card">
-    <h3>EEG Model Accuracy</h3>
-    <div class="value high">40%</div>
-    <div class="sub">Unseen subjects (LOSO). Random split: 81.9%, inflated by subject leakage</div>
-  </div>
-  <div class="card">
-    <h3>Features Used</h3>
-    <div class="value" style="color:#ccd6f6;">252</div>
-    <div class="sub">14 EEG Channels × 18 Features</div>
-  </div>
-  <div class="card">
-    <h3>User Profile</h3>
-    <div class="value" style="color:#ccd6f6; font-size:20px;" id="profile-display">Intermediate</div>
-    <div class="sub" id="profile-sub">Adaptive thresholds active</div>
-  </div>
-</div>
 
-<div class="code-section">
-  <h3>📝 Paste Your Code Here — BVI & Load will update automatically</h3>
-  <textarea id="code-input" placeholder="Paste your Python code here...
-Example:
-def bubble_sort(arr):
+    <div class="decide">
+      <div class="signal brain">
+        <div class="bar"></div>
+        <div>
+          <h2>Brain state (EEG)</h2>
+          <div class="big" id="brain-value">—</div>
+          <div class="meter" aria-hidden="true"><i id="brain-meter"></i></div>
+          <div class="meta" id="brain-meta">Waiting for EEG</div>
+        </div>
+      </div>
+      <div class="signal code">
+        <div class="bar"></div>
+        <div>
+          <h2>Code complexity</h2>
+          <div class="big" id="code-value">—</div>
+          <div class="meta" id="code-meta">Paste code below to measure it</div>
+        </div>
+      </div>
+      <div class="verdict" id="verdict" role="status" aria-live="polite">
+        <strong id="verdict-title">Waiting for data</strong>
+        <span id="verdict-text">The monitor updates every 5 seconds.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="panel" aria-label="Timeline">
+    <h2>Brain engagement and code complexity over time</h2>
+    <p class="lead">Pink: probability the programmer is engaged, from EEG. Teal: complexity of the code (low, medium, high). Light band: when P05 was actually reading code during the recording.</p>
+    <div style="position:relative;height:300px"><canvas id="timeline" aria-label="Timeline chart"></canvas></div>
+    <div class="stats">
+      <div><b id="stat-agree">—</b>agreement with what P05 was actually doing</div>
+      <div><b id="stat-engaged">—</b>of windows engaged</div>
+      <div><b id="stat-windows">0</b>windows seen</div>
+    </div>
+  </section>
+
+  <!-- WORK ROW -->
+  <section class="work">
+    <div class="panel">
+      <h2 id="work-title">On P05's screen now</h2>
+      <p class="lead" id="work-lead">The Java snippet P05 was reading at this moment of the recording, so brain and code come from the same person at the same time.</p>
+      <pre class="screen" id="screen" aria-live="polite">Waiting for the recording...</pre>
+      <textarea class="hidden" id="code-input" spellcheck="false" aria-label="Python code" placeholder="def bubble_sort(arr):
+    n = len(arr)
     for i in range(n):
-        for j in range(n-i-1):
-            if arr[j] > arr[j+1]:
-                arr[j], arr[j+1] = arr[j+1], arr[j]"></textarea>
-</div>
-
-<div class="bvi-section">
-  <h3>🐛 Bug Vulnerability Index (BVI)</h3>
-  <div class="bvi-grid">
-    <div>
-      <div class="bvi-number" id="bvi-value">—</div>
-      <div class="bvi-risk" id="bvi-risk">Paste code above...</div>
+        for j in range(n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+    return arr"></textarea>
+      <div class="codefacts" id="code-facts"></div>
     </div>
-    <div>
-      <div class="bvi-track">
-        <div class="bvi-fill" id="bvi-bar" style="width:0%"></div>
+
+    <div class="panel">
+      <h2>Bug risk</h2>
+      <div class="bvi">
+        <svg viewBox="0 0 170 110" aria-hidden="true">
+          <path d="M15,95 A70,70 0 0 1 155,95" fill="none" stroke="#2D2550" stroke-width="14" stroke-linecap="round"/>
+          <path id="bvi-arc" d="M15,95 A70,70 0 0 1 155,95" fill="none" stroke="#3DD6D0" stroke-width="14" stroke-linecap="round"
+                stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset .8s ease, stroke .5s"/>
+          <text id="bvi-value" x="85" y="88" text-anchor="middle" font-size="30" font-weight="700" fill="#EEE8FA" font-family="Sora, sans-serif">—</text>
+        </svg>
+        <div>
+          <div class="risk" id="bvi-risk">Paste code to estimate</div>
+          <div class="formula">Bug Vulnerability Index = 0.35 × complexity + 0.35 × brain engagement (30-second average) + 0.15 × SHAP + 0.15 × eye score</div>
+        </div>
       </div>
-      <div class="bvi-label">
-        <span>Low Risk (0-40%)</span>
-        <span>Medium Risk (40-70%)</span>
-        <span>High Risk (70-100%)</span>
-      </div>
-      <div class="bvi-formula">
-        BVI = (0.35 × CC) + (0.35 × Load level) + (0.15 × SHAP) + (0.15 × Eye Score)
+      <div class="suggest" aria-live="polite">
+        <span id="suggestion-text">Suggestions appear after code is analysed.</span>
+        <small>From a local language model (Ollama, llama3.2), given the code, its complexity and the brain state.</small>
       </div>
     </div>
-  </div>
-</div>
+  </section>
 
-<div class="charts">
-  <div class="chart-card">
-    <h3>📈 Load History (Last 20 readings)</h3>
-    <canvas id="historyChart" height="120"></canvas>
-  </div>
-  <div class="chart-card">
-    <h3>📊 Load Distribution</h3>
-    <canvas id="pieChart" height="120"></canvas>
-  </div>
-</div>
-
-<div class="bottom">
-  <div class="suggestion-box">
-    <h3>💡 AI Suggestion</h3>
-    <div class="suggestion-text" id="suggestion-text">Waiting for analysis...</div>
-    <div style="margin-top:10px; font-size:11px; color:#8892b0;" id="complexity-info"></div>
-  </div>
-  <div class="suggestion-box">
-    <h3>🧠 Top SHAP Features</h3>
-    <ul class="shap-list">
-      <li><div class="shap-bar" style="width:100px"></div> T7_PermEn <span style="margin-left:auto;color:#8892b0;">0.297</span></li>
-      <li><div class="shap-bar" style="width:63px"></div> F3_SampEn <span style="margin-left:auto;color:#8892b0;">0.186</span></li>
-      <li><div class="shap-bar" style="width:62px"></div> F3_PermEn <span style="margin-left:auto;color:#8892b0;">0.184</span></li>
-      <li><div class="shap-bar" style="width:57px"></div> T7_Beta/Alpha <span style="margin-left:auto;color:#8892b0;">0.169</span></li>
-      <li><div class="shap-bar" style="width:55px"></div> P7_PermEn <span style="margin-left:auto;color:#8892b0;">0.164</span></li>
-    </ul>
-    <div class="note">Features the EEG model relies on most. This may reflect subject identity, not load.</div>
-  </div>
-</div>
+  <!-- FOOTNOTES -->
+  <section class="notes">
+    <div class="panel">
+      <h2>How the brain state is made</h2>
+      <p class="small">No headset is connected. The monitor plays back recorded EEG of participant P05 from the Peitek et al. program-comprehension study, one 5-second window every 5 seconds. The XGBoost model was trained on nine other programmers to tell code reading from rest, so P05 is new to it. With a live headset only the data source changes.</p>
+      <p class="small">Replay mode shows the snippet P05 was reading in each window. Snippets: Peitek et al., NoviceVsExpert replication package (CC BY-SA 4.0); complexity measured with lizard. Live mode analyses your own Python code with radon.</p>
+      <div style="position:relative;width:300px;height:150px;margin-top:16px"><canvas id="share" aria-label="Share of engaged and resting windows"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Features the STEW model relied on</h2>
+      <ul class="shap">
+        <li>T7 permutation entropy<span class="b" style="width:100%"></span><em>0.297</em></li>
+        <li>F3 sample entropy<span class="b" style="width:63%"></span><em>0.186</em></li>
+        <li>F3 permutation entropy<span class="b" style="width:62%"></span><em>0.184</em></li>
+        <li>T7 beta/alpha<span class="b" style="width:57%"></span><em>0.169</em></li>
+        <li>P7 permutation entropy<span class="b" style="width:55%"></span><em>0.164</em></li>
+      </ul>
+      <p class="small">Mean SHAP values from the earlier STEW model. Cross-dataset tests showed that model mainly recognised individuals rather than load, so the live brain state uses the programmer model instead.</p>
+    </div>
+  </section>
+</main>
 
 <script>
 // Works from the backend (port 5000) and from Live Server (port 5500)
 const API = location.port === '5000' ? '' : 'http://localhost:5000';
+const BRAIN = '#FF6F91', CODE = '#3DD6D0', ALERT = '#FFC857';
 
-const history = [];
-const counts  = {Low: 0, Medium: 0, High: 0};
-let   cachedCode  = '';
-let   blinkRate   = undefined;
+// ---------- head map ----------
+// Approximate top-view positions of the 14 Emotiv electrodes (front = top)
+const POS = {
+  AF3: [-0.25, -0.78], AF4: [0.25, -0.78], F7: [-0.62, -0.55], F8: [0.62, -0.55],
+  F3:  [-0.32, -0.45], F4:  [0.32, -0.45], FC5: [-0.64, -0.22], FC6: [0.64, -0.22],
+  T7:  [-0.9, 0.02],   T8:  [0.9, 0.02],   P7: [-0.66, 0.5],   P8: [0.66, 0.5],
+  O1:  [-0.28, 0.86],  O2:  [0.28, 0.86]
+};
+const NS = 'http://www.w3.org/2000/svg';
+const eGroup = document.getElementById('electrodes');
+const bGroup = document.getElementById('blobs');
+const dots = {}, blobs = {};
+for (const [name, [x, y]] of Object.entries(POS)) {
+  const blob = document.createElementNS(NS, 'circle');
+  blob.setAttribute('cx', x); blob.setAttribute('cy', y); blob.setAttribute('r', 0.42);
+  blob.setAttribute('fill', 'url(#blobGrad)'); blob.setAttribute('class', 'blob'); blob.style.opacity = 0;
+  bGroup.appendChild(blob); blobs[name] = blob;
 
-const histCtx  = document.getElementById('historyChart').getContext('2d');
-const histChart = new Chart(histCtx, {
+  const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'electrode');
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 0.095);
+  c.setAttribute('fill', '#2D2550'); c.setAttribute('stroke', '#4A3F7A'); c.setAttribute('stroke-width', 0.012);
+  const t = document.createElementNS(NS, 'text'); t.setAttribute('x', x); t.setAttribute('y', y); t.textContent = name;
+  const title = document.createElementNS(NS, 'title'); title.textContent = name;
+  g.append(c, t, title); eGroup.appendChild(g); dots[name] = {c, title};
+}
+
+function mix(a, b, t) {               // blend two hex colours
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b);
+  return `rgb(${Math.round(r1 + (r2 - r1) * t)},${Math.round(g1 + (g2 - g1) * t)},${Math.round(b1 + (b2 - b1) * t)})`;
+}
+function drawHead(channels) {
+  if (!channels) return;
+  for (const [name, z] of Object.entries(channels)) {
+    if (!dots[name]) continue;
+    const t = Math.max(0, Math.min(1, (z + 2) / 4));          // z -2..+2 -> 0..1
+    dots[name].c.setAttribute('fill', mix('#2D2550', BRAIN, t));
+    dots[name].title.textContent = `${name}: theta/alpha ${z >= 0 ? '+' : ''}${z.toFixed(2)} SD from session average`;
+    blobs[name].style.opacity = Math.max(0, (z + 0.5) / 2.5).toFixed(2);
+  }
+}
+
+// ---------- charts ----------
+const tl = new Chart(document.getElementById('timeline'), {
   type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: 'Cognitive Load',
-      data: [],
-      borderColor: '#00d4aa',
-      backgroundColor: '#00d4aa22',
-      fill: true,
-      tension: 0.4,
-      pointBackgroundColor: [],
-    }]
-  },
+  data: { labels: [], datasets: [
+    { label: 'Actually reading code', data: [], stepped: true, fill: 'origin', borderWidth: 0, pointRadius: 0,
+      backgroundColor: 'rgba(238,232,250,0.07)', order: 3 },
+    { label: 'Brain engagement (EEG)', data: [], borderColor: BRAIN, backgroundColor: 'rgba(255,111,145,0.12)',
+      fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2.5, order: 1 },
+    { label: 'Code complexity', data: [], borderColor: CODE, stepped: true, fill: false, pointRadius: 0,
+      borderWidth: 2, borderDash: [6, 5], order: 2 }
+  ]},
   options: {
-    responsive: true,
+    animation: false, responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
     scales: {
-      y: { min: 0, max: 3, ticks: { color: '#8892b0', callback: v => ['','Low','Medium','High'][v] }, grid: { color: '#2d356133' } },
-      x: { ticks: { color: '#8892b0' }, grid: { color: '#2d356133' } }
+      y: { min: 0, max: 1.05, ticks: { color: '#9C92BC', stepSize: 0.2, callback: v => v <= 1 ? v.toFixed(1) : '' }, grid: { color: '#2D255088' } },
+      x: { ticks: { color: '#9C92BC', maxTicksLimit: 10 }, grid: { display: false } }
     },
-    plugins: { legend: { display: false } }
+    plugins: { legend: { labels: { color: '#EEE8FA', boxWidth: 14, font: { family: 'Sora' } } } }
   }
 });
-
-const pieCtx   = document.getElementById('pieChart').getContext('2d');
-const pieChart = new Chart(pieCtx, {
+const share = new Chart(document.getElementById('share'), {
   type: 'doughnut',
-  data: {
-    labels: ['Low', 'Medium', 'High'],
-    datasets: [{ data: [1, 1, 1], backgroundColor: ['#00d4aa', '#f0a500', '#ff4757'], borderWidth: 0 }]
-  },
-  options: { responsive: true, plugins: { legend: { labels: { color: '#ccd6f6' } } } }
+  data: { labels: ['Engaged', 'Resting'], datasets: [{ data: [0, 0], backgroundColor: [BRAIN, '#4A3F7A'], borderWidth: 0 }] },
+  options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#EEE8FA', font: { family: 'Sora' } } } } }
 });
+
+// ---------- state ----------
+const hist = [], recentP = [];
+let agree = 0, total = 0, engagedN = 0, lastWindow = -1, blinkRate;
+const CODE_NUM = { Low: 0.33, Medium: 0.67, High: 1.0 };
+let mode = 'replay';
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('mode-replay').setAttribute('aria-pressed', m === 'replay');
+  document.getElementById('mode-live').setAttribute('aria-pressed', m === 'live');
+  const replay = m === 'replay';
+  document.getElementById('screen').classList.toggle('hidden', !replay);
+  document.getElementById('code-input').classList.toggle('hidden', replay);
+  document.getElementById('work-title').textContent = replay ? "On P05's screen now" : 'Your code';
+  document.getElementById('work-lead').textContent = replay
+    ? 'The Java snippet P05 was reading at this moment of the recording, so brain and code come from the same person at the same time.'
+    : 'Paste Python code. Complexity, bug risk and the suggestion update within 5 seconds. The brain state still comes from the P05 recording.';
+  hist.length = 0;            // new mode, fresh timeline
+  update();
+}
 
 function setProfile(level) {
-  fetch(API + '/set_profile?level=' + level)
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('profile-display').textContent = data.level;
-      document.getElementById('profile-sub').textContent =
-        'Threshold: ' + (level === 'Beginner' ? 'CC≥3 → High' :
-                         level === 'Expert'   ? 'CC≥6 → High' : 'CC≥4 → High');
-      document.getElementById('status-badge').textContent = '✓ Profile: ' + data.level;
-      cachedCode = '';
-      update();
-    })
-    .catch(e => console.log('Profile error:', e));
+  fetch(API + '/set_profile?level=' + level).then(r => r.json()).then(update).catch(() => {});
 }
-
-function calculateBVI(loadLevel, complexity, br) {
-  const loadScore  = {Low: 0.2, Medium: 0.5, High: 1.0}[loadLevel] || 0.5;
-  const cc         = complexity ? Math.min(complexity.cyclomatic_complexity / 10, 1) : 0.3;
-  const shapNorm   = 0.247 / 1.9871;
-
-  let eyeScore = 0.3;
-  if (br !== undefined) {
-    if (br > 25 || br < 8)       eyeScore = 1.0;
-    else if (br > 18 || br < 12) eyeScore = 0.5;
-    else                         eyeScore = 0.2;
-  }
-
-  const bvi = (0.35 * cc) + (0.35 * loadScore) + (0.15 * shapNorm) + (0.15 * eyeScore);
-  return Math.round(bvi * 100);
-}
-
-function updateBVI(bvi) {
-  document.getElementById('bvi-value').textContent = bvi + '%';
-  const bar  = document.getElementById('bvi-bar');
-  const risk = document.getElementById('bvi-risk');
-  bar.style.width = bvi + '%';
-  if (bvi > 70) {
-    bar.style.background = 'linear-gradient(90deg, #ff4757, #ff6b81)';
-    risk.style.color     = '#ff4757';
-    risk.textContent     = '🔴 High Bug Risk — Simplify your code!';
-  } else if (bvi > 40) {
-    bar.style.background = 'linear-gradient(90deg, #f0a500, #ffd32a)';
-    risk.style.color     = '#f0a500';
-    risk.textContent     = '🟡 Medium Bug Risk — Review your logic';
-  } else {
-    bar.style.background = 'linear-gradient(90deg, #00d4aa, #00fff5)';
-    risk.style.color     = '#00d4aa';
-    risk.textContent     = '🟢 Low Bug Risk — Good work!';
-  }
-}
-
-// Get blink rate from eye tracking backend if available
 function fetchBlinkRate() {
-  fetch(API + '/eye_status')
-    .then(r => r.json())
-    .then(data => { blinkRate = data.blink_rate; })
-    .catch(() => { blinkRate = undefined; });
+  fetch(API + '/eye_status').then(r => r.json()).then(d => { blinkRate = d.blink_rate; }).catch(() => { blinkRate = undefined; });
+}
+
+function bvi(pEngaged, complexity, br) {
+  const load = (pEngaged == null) ? 0.5 : pEngaged;
+  const cc   = Math.min(complexity.max_complexity / 10, 1);
+  const shap = 0.247 / 1.9871;
+  let eye = 0.3;
+  if (br !== undefined) eye = (br > 25 || br < 8) ? 1.0 : (br > 18 || br < 12) ? 0.5 : 0.2;
+  return Math.round(100 * (0.35 * cc + 0.35 * load + 0.15 * shap + 0.15 * eye));
+}
+function drawBVI(v) {
+  const arc = document.getElementById('bvi-arc'), risk = document.getElementById('bvi-risk');
+  document.getElementById('bvi-value').textContent = v == null ? '—' : v + '%';
+  arc.style.strokeDashoffset = v == null ? 220 : 220 * (1 - v / 100);
+  if (v == null)      { risk.textContent = 'Paste code to estimate'; risk.style.color = '#9C92BC'; return; }
+  if (v > 70)         { arc.style.stroke = BRAIN; risk.textContent = 'High risk: simplify before going further'; risk.style.color = BRAIN; }
+  else if (v > 40)    { arc.style.stroke = ALERT; risk.textContent = 'Medium risk: review the logic'; risk.style.color = ALERT; }
+  else                { arc.style.stroke = CODE;  risk.textContent = 'Low risk'; risk.style.color = CODE; }
+}
+function verdict(eeg, level) {
+  const v = document.getElementById('verdict');
+  const title = document.getElementById('verdict-title'), text = document.getElementById('verdict-text');
+  const engaged = eeg && eeg.state === 'Engaged';
+  v.classList.toggle('alert', engaged && level === 'High');
+  if (!eeg)                              { title.textContent = 'No EEG';                text.textContent = 'Check that the backend is running.'; }
+  else if (engaged && level === 'High')  { title.textContent = 'Complex code while highly engaged'; text.textContent = 'This is when the extension shows its warning and offers help.'; }
+  else if (engaged)                      { title.textContent = 'Focused';               text.textContent = 'The brain is engaged and the code is manageable.'; }
+  else if (level === 'High')             { title.textContent = 'Complex code, brain at rest'; text.textContent = 'No warning: the programmer is not currently working hard.'; }
+  else                                   { title.textContent = 'Relaxed';               text.textContent = 'Low engagement and simple code.'; }
 }
 
 function update() {
-  const code = document.getElementById('code-input').value || '';
+  const code = mode === 'live' ? (document.getElementById('code-input').value || '') : '';
   fetch(API + '/predict?code=' + encodeURIComponent(code))
     .then(r => r.json())
     .then(data => {
-      const load     = data.load_level;
-      const colorMap = {Low: '#00d4aa', Medium: '#f0a500', High: '#ff4757'};
-      const numMap   = {Low: 1, Medium: 2, High: 3};
-      const classMap = {Low: 'low', Medium: 'medium', High: 'high'};
+      const eeg = data.eeg;
+      // code source: P05's on-screen Java snippet (replay) or your Python code (live)
+      let level = null, cx = null, codeLabel = '';
+      if (mode === 'replay') {
+        const s = eeg && eeg.on_screen;
+        const screen = document.getElementById('screen');
+        if (s) {
+          level = s.level;
+          cx = { max_complexity: s.cc_max, loop_count: s.loops, condition_count: s.conditions, function_count: null, halstead_effort: null };
+          codeLabel = `Java snippet ${s.name}: cyclomatic complexity ${s.cc_max}, ${s.loops} loops, ${s.conditions} conditions`;
+          if (screen.dataset.name !== s.name) { screen.textContent = s.code; screen.dataset.name = s.name; }
+          screen.classList.remove('rest');
+        } else if (eeg) {
+          codeLabel = 'Fixation cross on screen: P05 is resting';
+          screen.textContent = '+'; screen.dataset.name = ''; screen.classList.add('rest');
+        }
+      } else if (data.complexity) {
+        level = data.load_level; cx = data.complexity;
+        codeLabel = `Cyclomatic complexity ${cx.max_complexity}, ${cx.loop_count} loops, ${cx.condition_count} conditions`;
+      }
+      const chip = document.getElementById('status-chip');
+      chip.className = 'chip live'; chip.innerHTML = 'Backend <b>live</b>';
 
-      document.getElementById('load-value').textContent      = load;
-      document.getElementById('load-value').className        = `value ${classMap[load]}`;
-      document.getElementById('load-dot').className          = `dot ${classMap[load]}`;
-      document.getElementById('load-sub').textContent        = 'From code complexity · ' + new Date().toLocaleTimeString();
-      document.getElementById('suggestion-text').textContent = data.suggestion || 'Getting suggestion...';
-      document.getElementById('status-badge').textContent    = '✓ Live';
-
-      if (data.complexity) {
-        document.getElementById('complexity-info').textContent =
-          `CC: ${data.complexity.cyclomatic_complexity} | Loops: ${data.complexity.loop_count} | Conditions: ${data.complexity.condition_count}`;
+      // brain
+      if (eeg) {
+        document.getElementById('brain-value').textContent = eeg.state;
+        document.getElementById('brain-meter').style.width = (eeg.p_engaged * 100) + '%';
+        document.getElementById('brain-meta').textContent =
+          `P(engaged) ${eeg.p_engaged.toFixed(2)}. Window ${eeg.window + 1} of ${eeg.n_windows}; P05 was ${eeg.true_phase === 'rest' ? 'resting' : 'reading ' + eeg.snippet}.`;
+        document.getElementById('head-state').textContent = eeg.state;
+        document.getElementById('head-p').textContent = 'P(engaged) ' + eeg.p_engaged.toFixed(2);
+        drawHead(eeg.channels);
       }
 
-      const bvi = calculateBVI(load, data.complexity, blinkRate);
-      updateBVI(bvi);
+      // code
+      if (cx) {
+        document.getElementById('code-value').textContent = level;
+        document.getElementById('code-meta').textContent = codeLabel;
+        document.getElementById('code-facts').textContent = cx.function_count != null ? `${cx.function_count} function(s), Halstead effort ${cx.halstead_effort}` : '';
+      } else {
+        document.getElementById('code-value').textContent = mode === 'replay' ? 'None' : '—';
+        document.getElementById('code-meta').textContent = codeLabel || (mode === 'replay' ? 'Waiting for the recording' : 'Paste code below to measure it');
+        document.getElementById('code-facts').textContent = '';
+      }
+      verdict(eeg, cx ? level : null);
+      document.getElementById('suggestion-text').textContent = mode === 'replay'
+        ? 'In replay mode the code is P05\'s study snippet, so no suggestion is generated. Switch to live mode for suggestions on your own code.'
+        : (cx ? (data.suggestion || 'Getting suggestion…') : 'Suggestions appear after code is analysed.');
 
-      history.push({load, num: numMap[load], color: colorMap[load]});
-      if (history.length > 20) history.shift();
-      counts[load]++;
+      // bug risk: only with code; brain engagement averaged over 30 s
+      if (eeg) { recentP.push(eeg.p_engaged); if (recentP.length > 6) recentP.shift(); }
+      drawBVI(cx ? bvi(recentP.reduce((a, b) => a + b, 0) / recentP.length, cx, blinkRate) : null);
 
-      histChart.data.labels                           = history.map((_, i) => i + 1);
-      histChart.data.datasets[0].data                 = history.map(h => h.num);
-      histChart.data.datasets[0].pointBackgroundColor = history.map(h => h.color);
-      histChart.update();
-
-      pieChart.data.datasets[0].data = [counts.Low, counts.Medium, counts.High];
-      pieChart.update();
+      // timeline and stats: once per EEG window
+      if (eeg && eeg.window !== lastWindow) {
+        lastWindow = eeg.window; total++;
+        if (eeg.state === 'Engaged') engagedN++;
+        if ((eeg.state === 'Engaged') === (eeg.true_phase === 'reading code')) agree++;
+        hist.push({ p: eeg.p_engaged, c: cx ? CODE_NUM[level] : null, r: eeg.true_phase === 'reading code' ? 1.05 : 0 });
+        if (hist.length > 60) hist.shift();
+        tl.data.labels = hist.map((_, i) => `${(i - hist.length + 1) * 5}s`);
+        tl.data.datasets[0].data = hist.map(h => h.r);
+        tl.data.datasets[1].data = hist.map(h => h.p);
+        tl.data.datasets[2].data = hist.map(h => h.c);
+        tl.update();
+        share.data.datasets[0].data = [engagedN, total - engagedN]; share.update();
+        document.getElementById('stat-agree').textContent   = Math.round(100 * agree / total) + '%';
+        document.getElementById('stat-engaged').textContent = Math.round(100 * engagedN / total) + '%';
+        document.getElementById('stat-windows').textContent = total;
+      }
     })
-    .catch(() => document.getElementById('status-badge').textContent = '✗ Offline');
+    .catch(() => {
+      const chip = document.getElementById('status-chip');
+      chip.className = 'chip off'; chip.innerHTML = 'Backend <b>offline: run python src\\backend_v2.py</b>';
+    });
 }
 
 fetchBlinkRate();

@@ -1,0 +1,258 @@
+{
+ "Ackerman": {
+  "code": "class ackerman {\n\n    public static void main(String[] args) {\n        int x = 1;\n        int y = 1;\n        System.out.println(\"\");\n        System.out.println(5);\n        System.out.println(\"\");\n        System.out.println(6);\n        System.out.println(\"\");\n        System.out.println(ackermann(x, y));\n    }\n\n    public static int ackermann(int n, int m) {\n        if (n == 0) {\n            return m + 1;\n        } else if (m == 0) {\n            return ackermann(n - 1, 1);\n        }\n\n        return ackermann(n - 1, ackermann(n, m - 1));\n    }\n\n}",
+  "cc_max": 3,
+  "nloc": 20,
+  "loops": 0,
+  "conditions": 2,
+  "level": "Medium"
+ },
+ "ArrayAverage": {
+  "code": "class array_average {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"0.0\");\n        System.out.println();\n        System.out.println(\"7.0\");\n        System.out.println();\n        int[] input = {2, 4, 1, 9};\n        System.out.println(arrayAverage(input));\n    }\n\n    public static float arrayAverage(int[] numbers) {\n        int count = 0;\n        int sum = 0;\n\n        while (count < numbers.length) {\n            sum = sum + numbers[count];\n            count = count + 1;\n        }\n\n        float average = sum / (float) count;\n        return average;\n    }\n\n}",
+  "cc_max": 2,
+  "nloc": 21,
+  "loops": 1,
+  "conditions": 0,
+  "level": "Medium"
+ },
+ "BinToDecimal": {
+  "code": "public class BinToDecimal {\n\n    public static void main(String[] args) {\n        String binaryString = \"1001\";\n        int offset = 1;\n        System.out.println();\n        System.out.println(\"9\");\n        System.out.println();\n        System.out.println(\"4\");\n        System.out.println();\n        System.out.println(binaryToDecimal(binaryString, offset));\n    }\n\n    static int binaryToDecimal(String str, int position) {\n        if (position < 0) {\n            return 0;\n        } else if (str.charAt(position) == '0') {\n            return 2 * binaryToDecimal(str, position - 1);\n        }\n\n        return 1 + 2 * binaryToDecimal(str, position - 1);\n    }\n\n}",
+  "cc_max": 3,
+  "nloc": 20,
+  "loops": 0,
+  "conditions": 2,
+  "level": "Medium"
+ },
+ "BinarySearch": {
+  "code": "public class BinarySearch {\n\n    public static void main(String[] args) {\n        int[] sortedArray = {2, 4, 8, 16, 32, 64, 128};\n        System.out.println(binarySearch(sortedArray, 8, 0, sortedArray.length));\n    }\n\n    public static int binarySearch(int[] sortedArray, int key, int low, int high) {\n        int middle = (low + high) / 2;\n\n        if (high < low) {\n            return -1;\n        }\n\n        if (key == sortedArray[middle]) {\n            return middle;\n        } else if (key < sortedArray[middle]) {\n            return binarySearch(sortedArray, key, low, middle - 1);\n        } else {\n            return binarySearch(sortedArray, key, middle + 1, high);\n        }\n    }\n}",
+  "cc_max": 4,
+  "nloc": 19,
+  "loops": 0,
+  "conditions": 3,
+  "level": "High"
+ },
+ "BinomialCoefficient": {
+  "code": "public class BinomialCoefficient {\n\n    public static void main(String[] args) {\n        int n = 3;\n        int k = 2;\n        int coefficient = binomialCoefficient(n, k);\n        System.out.println(coefficient);\n    }\n\n    public static int binomialCoefficient(int n, int k) {\n        int res = 1;\n\n        if (k > n - k)\n            k = n - k;\n\n        for (int i = 0; i < k; ++i) {\n            res *= (n - i);\n            res /= (i + 1);\n        }\n        return res;\n    }\n}",
+  "cc_max": 3,
+  "nloc": 18,
+  "loops": 1,
+  "conditions": 1,
+  "level": "Medium"
+ },
+ "BogoSort": {
+  "code": "import java.util.Random;\n\npublic class BogoSort {\n\n    public static void main(String[] args) {\n        int[] field = {23, 42, 137, 12, 54};\n        int[] result = bogo(field);\n        for (int element : result) {\n            System.out.print(element + \" \");\n        }\n    }\n\n    public static int[] bogo(int[] field) {\n        Random r = new Random();\n\n        while (!isFinished(field)) {\n            int a = r.nextInt(field.length);\n            int b = r.nextInt(field.length);\n\n            int temp = field[a];\n            field[a] = field[b];\n            field[b] = temp;\n        }\n\n        return field;\n    }\n\n    public static boolean isFinished(int[] field) {\n        for (int i = 0; i < field.length - 1; i++) {\n            if (field[i] > field[i + 1]) {\n                return false;\n            }\n        }\n        return true;\n    }\n\n}",
+  "cc_max": 3,
+  "nloc": 29,
+  "loops": 3,
+  "conditions": 1,
+  "level": "High"
+ },
+ "CheckIfLettersOnly": {
+  "code": "public class CheckIfLettersOnly {\n\n    public static boolean checkIfLettersOnly(String stringToTest) {\n        char ch;\n        int i = 0;\n        while (i < stringToTest.length()) {\n            ch = stringToTest.charAt(i);\n            if (!(ch >= 'a' && ch <= 'z') && !(ch >= 'A' && ch <= 'Z'))\n                return false;\n            i++;\n        }\n        return true;\n    }\n\n    public static void main(String[] args) {\n        String stringToTest = \"HelloWorld123\";\n        if (checkIfLettersOnly(stringToTest))\n            System.out.println(\"Yes\");\n        else\n            System.out.println(\"No\");\n    }\n\n}",
+  "cc_max": 6,
+  "nloc": 20,
+  "loops": 1,
+  "conditions": 2,
+  "level": "High"
+ },
+ "ContainsSubstring": {
+  "code": "class containsSubstring {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"false\");\n        System.out.println();\n        System.out.println(\"Error\");\n        System.out.println();\n\n        String word = \"Hamburg\";\n        String substring = \"burg\";\n        System.out.println(containsSubstring(word, substring));\n    }\n\n    public static boolean containsSubstring(String word, String substring) {\n        boolean containsSubstring = false;\n\n        for (int i = 0; i < word.length(); i++) {\n            for (int j = 0; j < substring.length(); j++) {\n                if (i + j > word.length()) {\n                    break;\n                }\n                if (word.charAt(i + j) != substring.charAt(j)) {\n                    break;\n                } else {\n                    if (j == substring.length() - 1) {\n                        containsSubstring = true;\n                        break;\n                    }\n                }\n            }\n        }\n\n        return containsSubstring;\n    }\n\n}",
+  "cc_max": 6,
+  "nloc": 31,
+  "loops": 2,
+  "conditions": 3,
+  "level": "High"
+ },
+ "DropNumber": {
+  "code": "/\nclass dropNum {\n\n    public static void main(String[] args) {\n        System.out.println(\"\");\n        System.out.println(\"1 3 4\");\n        System.out.println(\"\");\n        System.out.println(\"8 8 4\");\n        System.out.println(\"\");\n        int[] values = {8, 8, 1, 3, 4};\n        int[] middle = dropNumber(values, 3);\n        int[] out = dropNumber(middle, 1);\n\n        for (int value : out) {\n            System.out.print(\"\" + value + \" \");\n        }\n    }\n\n    public static int[] dropNumber(int[] input, int pos) {\n        if (input.length == 0 || pos >= input.length) {\n            throw new IllegalArgumentException();\n        }\n\n        int[] result = new int[input.length - 1];\n\n        for (int i = 0; i < pos; i++) {\n            result[i] = input[i];\n        }\n\n        for (int i = pos; i + 1 < input.length; i++) {\n            result[i] = input[i + 1];\n        }\n\n        return result;\n    }\n}",
+  "cc_max": 5,
+  "nloc": 29,
+  "loops": 3,
+  "conditions": 1,
+  "level": "High"
+ },
+ "DumpSorting": {
+  "code": "import java.util.Arrays;\nimport java.util.List;\n\nclass dumpSorting {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"[12, 11, 9, 8]\");\n        System.out.println();\n        System.out.println(\"[11, 9, 12, 8]\");\n        System.out.println();\n        int a = 9;\n        int b = 12;\n        int c = 8;\n        int d = 11;\n        System.out.println(sort(a, b, c, d));\n    }\n\n    public static List<Integer> sort(int a, int b, int c, int d) {\n        if (a > b) {\n            int temp = b;\n            b = a;\n            a = temp;\n        }\n        if (c > d) {\n            int temp = d;\n            d = c;\n            c = temp;\n        }\n        if (a > c) {\n            int temp = c;\n            c = a;\n            a = temp;\n        }\n        if (b > d) {\n            int temp = d;\n            d = b;\n            b = temp;\n        }\n        if (b > c) {\n            int temp = c;\n            c = b;\n            b = temp;\n        }\n\n        return Arrays.asList(a, b, c, d);\n    }\n\n}",
+  "cc_max": 6,
+  "nloc": 44,
+  "loops": 0,
+  "conditions": 5,
+  "level": "High"
+ },
+ "GreatestCommonDivisor": {
+  "code": "class gcd {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"15\");\n        System.out.println();\n        System.out.println(\"1\");\n        System.out.println();\n        int number1 = 20;\n        int number2 = 15;\n        System.out.println(greatestCommonDivisor(number1, number2));\n    }\n\n    public static int greatestCommonDivisor(int number1, int number2) {\n        int temp = number1;\n\n        while (temp != 0) {\n            if (number1 < number2) {\n                temp = number1;\n                number1 = number2;\n                number2 = temp;\n            }\n            temp = number1 % number2;\n            if (temp != 0) {\n                number1 = number2;\n                number2 = temp;\n            }\n        }\n\n        return number2;\n    }\n\n}",
+  "cc_max": 4,
+  "nloc": 28,
+  "loops": 1,
+  "conditions": 2,
+  "level": "High"
+ },
+ "HIndex": {
+  "code": "import java.util.Arrays;\n\npublic class HIndex {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"1\");\n        System.out.println();\n        System.out.println(\"9\");\n        System.out.println();\n        int[] numbers = {2, 4, 1, 4, 9};\n        System.out.println(hIndex(numbers));\n    }\n\n    public static int hIndex(int[] numbers) {\n        Arrays.sort(numbers);\n\n        int count = numbers.length;\n        int hIndex = 0;\n        for (int i = count - 1; i >= 0; i--) {\n            int current = count - 1;\n            if (numbers[i] >= current) {\n                hIndex = current;\n            } else {\n                break;\n            }\n        }\n        return hIndex;\n    }\n\n}",
+  "cc_max": 3,
+  "nloc": 26,
+  "loops": 1,
+  "conditions": 1,
+  "level": "Medium"
+ },
+ "HeightOfTree": {
+  "code": "public class HeightOfTree {\n\n    public static void main(String[] args) {\n        Node n = new Node();\n        n.left = new Node();\n        n.right = new Node();\n        n.left.left = new Node();\n        n.left.left.left = new Node();\n        n.left.left.right = new Node();\n        System.out.println(getHeightOfTree(n));\n    }\n\n    public static class Node {\n        public Node left, right;\n        int value;\n    }\n\n    public static int getHeightOfTree(Node n) {\n        if (n.left == null && n.right == null) {\n            return 1;\n        }\n        if (n.left == null) {\n            return 1 + getHeightOfTree(n.right);\n        }\n        if (n.right == null) {\n            return 1 + getHeightOfTree(n.left);\n        }\n        return 1 + Math.max(getHeightOfTree(n.left), getHeightOfTree(n.right));\n    }\n}",
+  "cc_max": 5,
+  "nloc": 27,
+  "loops": 0,
+  "conditions": 3,
+  "level": "High"
+ },
+ "InsertSort": {
+  "code": "public class InsertSort {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"7 5 4 3\");\n        System.out.println();\n        System.out.println(\"5 4 7 3\");\n        System.out.println();\n        int[] unsorted = {3, 7, 4, 5};\n        int[] result = sort(unsorted);\n        for (int j : result) {\n            System.out.print(\"\" + j + \" \");\n        }\n    }\n\n    public static int[] sort(int[] unsorted) {\n        for (int i = 1; i < unsorted.length; i++) {\n            for (int j = i; j > 0; j--) {\n                int jthElement = unsorted[j];\n                int jMinusOneElement = unsorted[j - 1];\n                if (jthElement < jMinusOneElement) {\n                    unsorted[j - 1] = jthElement;\n                    unsorted[j] = jMinusOneElement;\n                } else {\n                    break;\n                }\n            }\n        }\n        return unsorted;\n    }\n\n}",
+  "cc_max": 4,
+  "nloc": 29,
+  "loops": 3,
+  "conditions": 1,
+  "level": "High"
+ },
+ "IsAnagram": {
+  "code": "public class IsAnagram {\n\n    public static void main(String[] args) {\n        System.out.println(isAnagram(\"keep\", \"peek\"));\n    }\n\n    public static String sort(String word) {\n        StringBuilder builder = new StringBuilder(word);\n        for (int i = 1; i < builder.length(); i++) {\n            char temp = builder.charAt(i);\n            int j = i;\n            while (j > 0 && builder.charAt(j - 1) > temp) {\n                builder.setCharAt(j, builder.charAt(j - 1));\n                j--;\n            }\n            builder.setCharAt(j, temp);\n        }\n        return builder.toString();\n    }\n\n    public static boolean isAnagram(String word1, String word2) {\n        if (word1.length() != word2.length()) {\n            return false;\n        }\n        word1 = sort(word1);\n        word2 = sort(word2);\n\n        for (int i = 0; i < word1.length(); i++) {\n            if (word1.charAt(i) != word2.charAt(i)) {\n                return false;\n            }\n        }\n        return true;\n    }\n}",
+  "cc_max": 4,
+  "nloc": 31,
+  "loops": 3,
+  "conditions": 2,
+  "level": "High"
+ },
+ "IsPrime": {
+  "code": "class isPrime {\n\n    public static void main(String[] args) {\n        int number = 11;\n        System.out.println(isPrime(11));\n    }\n\n    public static boolean isPrime(int number) {\n        for (int i = 2; i < number; i++) {\n            if (number % i == 0) {\n                return false;\n            }\n        }\n        return true;\n    }\n}",
+  "cc_max": 3,
+  "nloc": 14,
+  "loops": 1,
+  "conditions": 1,
+  "level": "Medium"
+ },
+ "LengthOfLast": {
+  "code": "class lengthOfLast {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"3\");\n        System.out.println();\n        System.out.println(\"9\");\n        System.out.println();\n        String text = \"The quick brown fox jumps\";\n        System.out.println(lengthOfLastWord(text));\n    }\n\n\n    public static int lengthOfLastWord(String text) {\n        int length = 0;\n        boolean isLastWord = false;\n        for (int i = text.length() - 1; i >= 0; i--) {\n            char c = text.charAt(i);\n            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {\n                isLastWord = true;\n                length++;\n            } else {\n                if (isLastWord) {\n                    break;\n                }\n            }\n        }\n\n        return length;\n    }\n\n}",
+  "cc_max": 7,
+  "nloc": 27,
+  "loops": 1,
+  "conditions": 2,
+  "level": "High"
+ },
+ "MedianOnSorted": {
+  "code": "public class MedianOnSorted {\n    public static void main(String[] args) {\n        int[] array = {1, 2, 4, 5, 6, 16};\n\n        System.out.println(median(array));\n    }\n\n    public static float median(int[] array) {\n        float b;\n        if (array.length % 2 == 1)\n            b = array[array.length / 2];\n        else\n            b = (array[array.length / 2 - 1] + array[array.length / 2]) / 2f;\n        return b;\n    }\n}",
+  "cc_max": 2,
+  "nloc": 14,
+  "loops": 0,
+  "conditions": 1,
+  "level": "Medium"
+ },
+ "Palindrome": {
+  "code": "public class Palindrome {\n    public static void main(String[] args) {\n        System.out.println(isPalindrome(\"otto\"));\n    }\n\n    public static boolean isPalindrome(String text) {\n        for (int i = 0; i < text.length() / 2 - 1; i++) {\n            if (text.charAt(i) != text.charAt(text.length() - 1 - i)) {\n                return false;\n            }\n        }\n        return true;\n    }\n\n}",
+  "cc_max": 3,
+  "nloc": 13,
+  "loops": 1,
+  "conditions": 1,
+  "level": "Medium"
+ },
+ "PermuteString": {
+  "code": "import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\n\n\npublic class PermuteString {\n    public static void main(String[] args) {\n        String str = \"ABC\";\n        int n = str.length();\n        List<String> result = permute(str, 0, 2);\n        for (String permutation : result) {\n            System.out.println(permutation);\n        }\n    }\n\n    public static List<String> permute(String str, int l, int r) {\n        List<String> result = new ArrayList<>();\n        if (l == r)\n            result.add(str);\n        else {\n            for (int i = l; i <= r; i++) {\n                str = swap(str, l, i);\n                List<String> temp = permute(str, l + 1, r);\n                result.addAll(temp);\n                str = swap(str, l, i);\n            }\n        }\n        return result;\n    }\n\n    public static String swap(String a, int i, int j) {\n        char temp;\n        char[] charArray = a.toCharArray();\n        temp = charArray[i];\n        charArray[i] = charArray[j];\n        charArray[j] = temp;\n        return String.valueOf(charArray);\n    }\n}",
+  "cc_max": 3,
+  "nloc": 35,
+  "loops": 2,
+  "conditions": 1,
+  "level": "High"
+ },
+ "Power": {
+  "code": "public class Power {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"25\");\n        System.out.println();\n        System.out.println(\"64\");\n        System.out.println();\n        int result = power(2, 5);\n        System.out.println(result);\n    }\n\n    public static int power(int base, int exponent) {\n        int result = base;\n        for (int i = 2; i <= exponent; i++) {\n            result = result * base;\n        }\n        return result;\n    }\n}",
+  "cc_max": 2,
+  "nloc": 18,
+  "loops": 1,
+  "conditions": 0,
+  "level": "Medium"
+ },
+ "RabbitTortoise": {
+  "code": "public class RabbitTortoise {\n\n    public static void main(String[] args) {\n        int[] field = {1, 2, 3, 4, 4};\n        System.out.println(rabbitTortoise(field));\n    }\n\n    public static int rabbitTortoise(int[] number_field) {\n        int tortoise = number_field[0];\n        int rabbit = number_field[number_field[0]];\n\n        while (tortoise != rabbit) {\n            tortoise = number_field[tortoise];\n            rabbit = number_field[number_field[rabbit]];\n        }\n\n        rabbit = 0;\n        while (tortoise != rabbit) {\n            tortoise = number_field[tortoise];\n            rabbit = number_field[rabbit];\n        }\n        return rabbit;\n    }\n}",
+  "cc_max": 3,
+  "nloc": 20,
+  "loops": 2,
+  "conditions": 0,
+  "level": "High"
+ },
+ "Rectangle": {
+  "code": "public class Rectangle {\n    private final int x1;\n    private final int y1;\n    private final int x2;\n    private final int y2;\n\n    public Rectangle(int x1, int y1, int x2, int y2) {\n        this.x1 = x1;\n        this.y1 = y1;\n        this.x2 = x2;\n        this.y2 = y2;\n    }\n\n    public int width() {\n        return this.x2 - this.x1;\n    }\n\n    public int height() {\n        return this.y2 - this.y1;\n    }\n\n    public double area() {\n        return this.width() * this.height();\n    }\n\n    public static void main(String[] args) {\n        Rectangle rect1 = new Rectangle(0, 0, 10, 10);\n        System.out.println(rect1.area());\n        Rectangle rect2 = new Rectangle(5, 5, 10, 10);\n        System.out.println(rect2.area());\n    }\n}",
+  "cc_max": 1,
+  "nloc": 27,
+  "loops": 0,
+  "conditions": 0,
+  "level": "Low"
+ },
+ "RectanglePower": {
+  "code": "/**\n * How much do you like the snippet in a scale from (1(bad) to 5(good)), may leave your comments below\n *\n * Anabelle: 3 very easy, the standard example of recursive in the first programming lecture\n * Norman: 4\n * Jonas\n *\n */\n\n\nclass recPower {\n\n    public static void main(String[] args) {\n        System.out.println();\n        System.out.println(\"64\");\n        System.out.println();\n        System.out.println(\"243\");\n        System.out.println();\n        System.out.println(power(3, 4));\n    }\n\n    public static int power(int base, int exponent) {\n        if (exponent == 0) {\n            return 1;\n        }\n\n        if (exponent == 1) {\n            return base;\n        }\n\n        return base * power(base, exponent - 1);\n    }\n\n}",
+  "cc_max": 3,
+  "nloc": 19,
+  "loops": 0,
+  "conditions": 2,
+  "level": "Medium"
+ },
+ "RemoveDoubleChar": {
+  "code": "class removeDoubleChar {\n\n    public static void main(String[] args) {\n        System.out.println(\"\");\n        System.out.println(\"ll nn ss ee\");\n        System.out.println(\"\");\n        System.out.println(\"Nashvie, Tee\");\n        System.out.println(\"\");\n        String input = \"Nashville, Tennessee\";\n        String result = removeDoubleCharacters(input);\n        System.out.println(result);\n    }\n\n    public static String removeDoubleCharacters(String str) {\n        if (str.isEmpty()) {\n            return str;\n        }\n\n        StringBuilder result = new StringBuilder();\n\n        char prev = str.charAt(0);\n        result.append(prev);\n        for (int i = 1; i < str.length(); i++) {\n            char cur = str.charAt(i);\n            if (prev != cur) {\n                result.append(str.charAt(i));\n            }\n            prev = cur;\n        }\n\n        return result.toString();\n    }\n\n}",
+  "cc_max": 4,
+  "nloc": 28,
+  "loops": 1,
+  "conditions": 2,
+  "level": "High"
+ },
+ "ReverseArray": {
+  "code": "class reverseArray {\n    public static void main(String[] args) {\n        int[] array = {1, 6, 4, 16, 2};\n        reverse(array);\n\n        for (int i : array)\n            System.out.print(i + \" \");\n    }\n\n    public static void reverse(int[] array) {\n        for (int i = 0; i <= array.length / 2 - 1; i++) {\n            int tmp = array[array.length - 1 - i];\n            array[array.length - i - 1] = array[i];\n            array[i] = tmp;\n        }\n    }\n}",
+  "cc_max": 2,
+  "nloc": 15,
+  "loops": 2,
+  "conditions": 0,
+  "level": "High"
+ },
+ "ReverseQueue": {
+  "code": "import java.util.ArrayList;\nimport java.util.LinkedList;\nimport java.util.List;\nimport java.util.Queue;\n\n\npublic class ReverseQueue {\n\n    public static void main(String[] args) {\n        Queue<Integer> Q = new LinkedList<>();\n        Q.add(1);\n        Q.add(3);\n        Q.add(2);\n        Q.add(4);\n\n        reverse(Q);\n\n        for (Integer element : Q) {\n            System.out.print(element + \" \");\n        }\n    }\n\n    public static void reverse(Queue<Integer> Q) {\n        if (Q.isEmpty()) {\n            return;\n        }\n        Integer data = Q.remove();\n        reverse(Q);\n        Q.add(data);\n    }\n}",
+  "cc_max": 2,
+  "nloc": 25,
+  "loops": 1,
+  "conditions": 1,
+  "level": "Medium"
+ },
+ "SiebDesEratosthenes": {
+  "code": "import java.util.ArrayList;\nimport java.util.List;\n\npublic class SiebDesEratosthenes {\n\n    public static void main(String args[]) {\n        int n = 10;\n        List<Integer> result = sieveOfEratosthenes(n);\n        for (Integer number : result) {\n            System.out.print(number + \" \");\n        }\n    }\n\n    public static List<Integer> sieveOfEratosthenes(int n) {\n        boolean[] prime = new boolean[n + 1];\n        for (int i = 0; i <= n; i++)\n            prime[i] = true;\n\n        for (int p = 2; p * p <= n; p++) {\n            if (prime[p]) {\n                for (int i = p * p; i <= n; i += p)\n                    prime[i] = false;\n            }\n        }\n\n        List<Integer> primes = new ArrayList<>();\n        for (int i = 2; i <= n; i++) {\n            if (prime[i]) {\n                primes.add(i);\n            }\n        }\n        return primes;\n    }\n}",
+  "cc_max": 7,
+  "nloc": 29,
+  "loops": 5,
+  "conditions": 2,
+  "level": "High"
+ },
+ "SignChecker": {
+  "code": "public class SignChecker {\n    private int number;\n\n    public SignChecker(int currentNumber) {\n        number = currentNumber;\n    }\n\n    public String check() {\n        String theSign = \"\";\n        if (number < 0) {\n            theSign = \"negative\";\n        } else if (number > 0) {\n            theSign = \"positive\";\n        } else {\n            theSign = \"null\";\n        }\n        return theSign;\n    }\n\n    public static void main(String[] args) {\n        SignChecker number1 = new SignChecker(10);\n        System.out.print(number1.check());\n        SignChecker number2 = new SignChecker(0);\n        System.out.print(\" \" + number2.check());\n    }\n}",
+  "cc_max": 3,
+  "nloc": 23,
+  "loops": 0,
+  "conditions": 2,
+  "level": "Medium"
+ },
+ "SmallGauss": {
+  "code": "class smallGauss {\n\n    public static void main(String[] args) {\n        System.out.println(sum(10));\n    }\n\n    public static int sum(int n) {\n        int res = 0;\n        for (int i = 1; i < n; i++) {\n            res += i;\n        }\n        return res;\n    }\n}",
+  "cc_max": 2,
+  "nloc": 12,
+  "loops": 1,
+  "conditions": 0,
+  "level": "Medium"
+ },
+ "SumArray": {
+  "code": "public class SumArray {\n\n    public static void main(String[] args) {\n        int[] array = {1, 6, 4, 10, 2};\n        System.out.println(sumArray(array));\n    }\n\n    public static int sumArray(int[] array) {\n        int result = 0;\n\n        for (int i = 0; i < array.length; i++) {\n            result = result + array[i];\n        }\n\n        return result;\n    }\n}",
+  "cc_max": 2,
+  "nloc": 13,
+  "loops": 1,
+  "conditions": 0,
+  "level": "Medium"
+ },
+ "Vehicle": {
+  "code": "public class Vehicle {\n    String producer, type;\n    int topSpeed, currentSpeed;\n\n    public Vehicle(String p, String t, int tp) {\n        this.producer = p;\n        this.type = t;\n        this.topSpeed = tp;\n        this.currentSpeed = 0;\n    }\n\n    public void accelerate(int kmh) {\n        if ((this.currentSpeed + kmh) > this.topSpeed) {\n            this.currentSpeed = this.topSpeed;\n        } else {\n            this.currentSpeed = this.currentSpeed + kmh;\n        }\n    }\n\n    public static void main(String args[]) {\n        Vehicle v = new Vehicle(\"Audi\", \"A6\", 200);\n        v.accelerate(10);\n        System.out.println(v.currentSpeed);\n    }\n}",
+  "cc_max": 2,
+  "nloc": 22,
+  "loops": 0,
+  "conditions": 1,
+  "level": "Medium"
+ }
+}

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cognitive Load Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; }
+.header { background: linear-gradient(135deg, #1a1f2e, #2d3561); padding: 20px 40px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #2d3561; }
+.header h1 { font-size: 22px; font-weight: 600; }
+.header span { font-size: 13px; color: #8892b0; }
+.badge { background: #00d4aa22; color: #00d4aa; padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid #00d4aa44; }
+.badge.warn { background: #f0a50022; color: #f0a500; border-color: #f0a50044; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 30px 40px; }
+.card { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
+.card h3 { font-size: 12px; color: #8892b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.card .value { font-size: 32px; font-weight: 700; }
+.card .sub { font-size: 12px; color: #8892b0; margin-top: 5px; }
+.low { color: #00d4aa; }
+.medium { color: #f0a500; }
+.high { color: #ff4757; }
+.charts { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 0 40px 30px; }
+.chart-card { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
+.chart-card h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
+.bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 40px 30px; }
+.suggestion-box { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
+.suggestion-box h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
+.suggestion-text { background: #0f1117; border-radius: 8px; padding: 15px; font-size: 14px; color: #ccd6f6; border-left: 3px solid #00d4aa; line-height: 1.6; }
+.load-indicator { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; animation: pulse 1.5s infinite; }
+.dot.low  { background: #00d4aa; box-shadow: 0 0 8px #00d4aa; }
+.dot.medium { background: #f0a500; box-shadow: 0 0 8px #f0a500; }
+.dot.high { background: #ff4757; box-shadow: 0 0 8px #ff4757; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.shap-list { list-style: none; }
+.shap-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #2d356133; font-size: 13px; }
+.shap-bar { height: 6px; background: linear-gradient(90deg, #00d4aa, #2d3561); border-radius: 3px; }
+.note { margin-top: 10px; font-size: 11px; color: #8892b0; }
+.bvi-section { margin: 0 40px 30px; background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
+.bvi-section h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
+.bvi-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: center; }
+.bvi-number { font-size: 48px; font-weight: 700; }
+.bvi-track { background: #0f1117; border-radius: 10px; height: 24px; overflow: hidden; }
+.bvi-fill { height: 100%; border-radius: 10px; transition: width 0.8s, background 0.5s; }
+.bvi-label { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #8892b0; }
+.bvi-formula { margin-top: 10px; font-size: 11px; color: #8892b0; font-style: italic; }
+.bvi-risk { font-size: 13px; font-weight: 600; margin-top: 8px; }
+.code-section { margin: 0 40px 20px; background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
+.code-section h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 10px; }
+.code-section textarea { width: 100%; height: 120px; background: #0f1117; color: #ccd6f6; border: 1px solid #2d3561; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; resize: vertical; outline: none; }
+.code-section textarea:focus { border-color: #00d4aa; }
+.profile-select { background: #1a1f2e; color: #ccd6f6; border: 1px solid #00d4aa44; border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; outline: none; }
+.profile-select:focus { border-color: #00d4aa; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🧠 Cognitive Load Monitor</h1>
+    <span>Brain state: EEG playback (programmer model) | Code: radon complexity | Suggestions: Ollama</span>
+  </div>
+  <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
+    <span class="badge">Brain model: XGBoost, AUC 0.86 (new programmers)</span>
+    <span class="badge warn">EEG input: playback (no headset)</span>
+    <select class="profile-select" id="profile-select" onchange="setProfile(this.value)">
+      <option value="Beginner">Beginner</option>
+      <option value="Intermediate" selected>Intermediate</option>
+      <option value="Expert">Expert</option>
+    </select>
+    <span class="badge" id="status-badge">⟳ Connecting...</span>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Brain State (EEG)</h3>
+    <div class="load-indicator">
+      <div class="dot low" id="brain-dot"></div>
+      <div class="value" id="brain-value">—</div>
+    </div>
+    <div class="sub" id="brain-sub">Waiting for EEG...</div>
+  </div>
+  <div class="card">
+    <h3>Code Complexity</h3>
+    <div class="load-indicator">
+      <div class="dot low" id="load-dot"></div>
+      <div class="value" id="load-value">—</div>
+    </div>
+    <div class="sub" id="load-sub">Waiting for code...</div>
+  </div>
+  <div class="card">
+    <h3>Brain Model (EEG)</h3>
+    <div class="value low">0.86</div>
+    <div class="sub">AUC, reading vs rest, new programmers (LOSO, n = 10). STEW model on new people: 40% (chance 33%)</div>
+  </div>
+  <div class="card">
+    <h3>User Profile</h3>
+    <div class="value" style="color:#ccd6f6; font-size:20px;" id="profile-display">Intermediate</div>
+    <div class="sub" id="profile-sub">Adaptive thresholds active</div>
+  </div>
+</div>
+
+<div class="code-section">
+  <h3>📝 Paste Your Code Here — BVI & Load will update automatically</h3>
+  <textarea id="code-input" placeholder="Paste your Python code here...
+Example:
+def bubble_sort(arr):
+    for i in range(n):
+        for j in range(n-i-1):
+            if arr[j] > arr[j+1]:
+                arr[j], arr[j+1] = arr[j+1], arr[j]"></textarea>
+</div>
+
+<div class="bvi-section">
+  <h3>🐛 Bug Vulnerability Index (BVI)</h3>
+  <div class="bvi-grid">
+    <div>
+      <div class="bvi-number" id="bvi-value">—</div>
+      <div class="bvi-risk" id="bvi-risk">Paste code above...</div>
+    </div>
+    <div>
+      <div class="bvi-track">
+        <div class="bvi-fill" id="bvi-bar" style="width:0%"></div>
+      </div>
+      <div class="bvi-label">
+        <span>Low Risk (0-40%)</span>
+        <span>Medium Risk (40-70%)</span>
+        <span>High Risk (70-100%)</span>
+      </div>
+      <div class="bvi-formula">
+        BVI = (0.35 × CC) + (0.35 × Brain engagement from EEG) + (0.15 × SHAP) + (0.15 × Eye Score)
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="charts">
+  <div class="chart-card">
+    <h3>📈 Brain Engagement and Code Complexity (last 40 readings, every 5 s)</h3>
+    <canvas id="historyChart" height="120"></canvas>
+    <div class="note" id="agree-note">Agreement with actual phase: —</div>
+  </div>
+  <div class="chart-card">
+    <h3>📊 Brain State Distribution</h3>
+    <canvas id="pieChart" height="120"></canvas>
+  </div>
+</div>
+
+<div class="bottom">
+  <div class="suggestion-box">
+    <h3>💡 AI Suggestion</h3>
+    <div class="suggestion-text" id="suggestion-text">Waiting for analysis...</div>
+    <div style="margin-top:10px; font-size:11px; color:#8892b0;" id="complexity-info"></div>
+  </div>
+  <div class="suggestion-box">
+    <h3>🧠 Top SHAP Features (STEW model)</h3>
+    <ul class="shap-list">
+      <li><div class="shap-bar" style="width:100px"></div> T7_PermEn <span style="margin-left:auto;color:#8892b0;">0.297</span></li>
+      <li><div class="shap-bar" style="width:63px"></div> F3_SampEn <span style="margin-left:auto;color:#8892b0;">0.186</span></li>
+      <li><div class="shap-bar" style="width:62px"></div> F3_PermEn <span style="margin-left:auto;color:#8892b0;">0.184</span></li>
+      <li><div class="shap-bar" style="width:57px"></div> T7_Beta/Alpha <span style="margin-left:auto;color:#8892b0;">0.169</span></li>
+      <li><div class="shap-bar" style="width:55px"></div> P7_PermEn <span style="margin-left:auto;color:#8892b0;">0.164</span></li>
+    </ul>
+    <div class="note">Features the STEW model relied on most. Cross-dataset tests suggest they mainly reflect subject identity, not load; the live brain state uses the programmer model instead.</div>
+  </div>
+</div>
+
+<script>
+// Works from the backend (port 5000) and from Live Server (port 5500)
+const API = location.port === '5000' ? '' : 'http://localhost:5000';
+
+const history = [];
+const counts  = {Engaged: 0, Resting: 0};
+let   agree = 0, total = 0, lastWindow = -1;
+CONST RECENTP = [];
+let   cachedCode  = '';
+let   blinkRate   = undefined;
+
+const histCtx  = document.getElementById('historyChart').getContext('2d');
+const histChart = new Chart(histCtx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'P(engaged) from EEG', data: [], borderColor: '#ff6b81', backgroundColor: '#ff6b8122',
+        fill: true, tension: 0.3, pointRadius: 2 },
+      { label: 'Code complexity (Low / Medium / High)', data: [], borderColor: '#00d4aa',
+        borderDash: [6, 4], fill: false, tension: 0, pointRadius: 0, stepped: true }
+    ]
+  },
+  options: {
+    responsive: true,
+    animation: false,
+    scales: {
+      y: { min: 0, max: 1, ticks: { color: '#8892b0' }, grid: { color: '#2d356133' } },
+      x: { ticks: { color: '#8892b0' }, grid: { color: '#2d356133' } }
+    },
+    plugins: { legend: { labels: { color: '#ccd6f6', boxWidth: 12 } } }
+  }
+});
+
+const pieCtx   = document.getElementById('pieChart').getContext('2d');
+const pieChart = new Chart(pieCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Engaged', 'Resting'],
+    datasets: [{ data: [1, 1], backgroundColor: ['#ff6b81', '#00d4aa'], borderWidth: 0 }]
+  },
+  options: { responsive: true, plugins: { legend: { labels: { color: '#ccd6f6' } } } }
+});
+
+function setProfile(level) {
+  fetch(API + '/set_profile?level=' + level)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('profile-display').textContent = data.level;
+      document.getElementById('profile-sub').textContent =
+        'Threshold: ' + (level === 'Beginner' ? 'CC≥3 → High' :
+                         level === 'Expert'   ? 'CC≥6 → High' : 'CC≥4 → High');
+      document.getElementById('status-badge').textContent = '✓ Profile: ' + data.level;
+      cachedCode = '';
+      update();
+    })
+    .catch(e => console.log('Profile error:', e));
+}
+
+function calculateBVI(pEngaged, complexity, br) {
+  // brain engagement from EEG (0-1); 0.5 if no EEG
+  const loadScore  = (pEngaged === undefined || pEngaged === null) ? 0.5 : pEngaged;
+  const cc         = complexity ? Math.min(complexity.max_complexity / 10, 1) : 0.3;
+  const shapNorm   = 0.247 / 1.9871;
+
+  let eyeScore = 0.3;
+  if (br !== undefined) {
+    if (br > 25 || br < 8)       eyeScore = 1.0;
+    else if (br > 18 || br < 12) eyeScore = 0.5;
+    else                         eyeScore = 0.2;
+  }
+
+  const bvi = (0.35 * cc) + (0.35 * loadScore) + (0.15 * shapNorm) + (0.15 * eyeScore);
+  return Math.round(bvi * 100);
+}
+
+function updateBVI(bvi) {
+  document.getElementById('bvi-value').textContent = bvi + '%';
+  const bar  = document.getElementById('bvi-bar');
+  const risk = document.getElementById('bvi-risk');
+  bar.style.width = bvi + '%';
+  if (bvi > 70) {
+    bar.style.background = 'linear-gradient(90deg, #ff4757, #ff6b81)';
+    risk.style.color     = '#ff4757';
+    risk.textContent     = '🔴 High Bug Risk — Simplify your code!';
+  } else if (bvi > 40) {
+    bar.style.background = 'linear-gradient(90deg, #f0a500, #ffd32a)';
+    risk.style.color     = '#f0a500';
+    risk.textContent     = '🟡 Medium Bug Risk — Review your logic';
+  } else {
+    bar.style.background = 'linear-gradient(90deg, #00d4aa, #00fff5)';
+    risk.style.color     = '#00d4aa';
+    risk.textContent     = '🟢 Low Bug Risk — Good work!';
+  }
+}
+
+// Get blink rate from eye tracking backend if available
+function fetchBlinkRate() {
+  fetch(API + '/eye_status')
+    .then(r => r.json())
+    .then(data => { blinkRate = data.blink_rate; })
+    .catch(() => { blinkRate = undefined; });
+}
+
+function update() {
+  const code = document.getElementById('code-input').value || '';
+  fetch(API + '/predict?code=' + encodeURIComponent(code))
+    .then(r => r.json())
+    .then(data => {
+      const load     = data.load_level;                   // code complexity level
+      const eeg      = data.eeg;                          // brain state from EEG playback
+      const classMap = {Low: 'low', Medium: 'medium', High: 'high'};
+      const codeNum  = {Low: 0.33, Medium: 0.67, High: 1.0};
+
+      // Code complexity card
+      document.getElementById('load-value').textContent = load;
+      document.getElementById('load-value').className   = `value ${classMap[load]}`;
+      document.getElementById('load-dot').className     = `dot ${classMap[load]}`;
+      document.getElementById('load-sub').textContent   =
+        data.complexity ? `CC ${data.complexity.max_complexity} · loops ${data.complexity.loop_count} · ${new Date().toLocaleTimeString()}`
+                        : 'No code yet';
+
+      // Brain state card
+      if (eeg) {
+        const engaged = eeg.state === 'Engaged';
+        document.getElementById('brain-value').textContent = `${eeg.state} ${eeg.p_engaged.toFixed(2)}`;
+        document.getElementById('brain-value').className   = `value ${engaged ? 'high' : 'low'}`;
+        document.getElementById('brain-dot').className     = `dot ${engaged ? 'high' : 'low'}`;
+        document.getElementById('brain-sub').textContent   =
+          `Playback P05 · window ${eeg.window + 1}/${eeg.n_windows} · actual: ${eeg.true_phase} (${eeg.snippet})`;
+      }
+
+      document.getElementById('suggestion-text').textContent = data.suggestion || 'Getting suggestion...';
+      document.getElementById('status-badge').textContent    = '✓ Live';
+      if (data.complexity) {
+        document.getElementById('complexity-info').textContent =
+          `CC: ${data.complexity.max_complexity} | Loops: ${data.complexity.loop_count} | Conditions: ${data.complexity.condition_count}`;
+      }
+
+      // BVI only when there is code; brain engagement averaged over the last 6 windows (30 s)
+      if (eeg) { recentP.push(eeg.p_engaged); if (recentP.length > 6) recentP.shift(); }
+      if (data.complexity) {
+        const pSmooth = recentP.length ? recentP.reduce((a, b) => a + b, 0) / recentP.length : undefined;
+        updateBVI(calculateBVI(pSmooth, data.complexity, blinkRate));
+      } else {
+        document.getElementById('bvi-value').textContent = '—';
+        document.getElementById('bvi-bar').style.width   = '0%';
+        document.getElementById('bvi-risk').textContent  = 'Paste code above...';
+        document.getElementById('bvi-risk').style.color  = '#8892b0';
+      }
+
+      // Count each EEG window once (the dashboard polls every 5 s, same as the playback step)
+      if (eeg && eeg.window !== lastWindow) {
+        lastWindow = eeg.window;
+        counts[eeg.state]++;
+        total++;
+        if ((eeg.state === 'Engaged') === (eeg.true_phase === 'reading code')) agree++;
+        document.getElementById('agree-note').textContent =
+          `Agreement with actual phase (reading code vs rest): ${Math.round(100 * agree / total)}% of ${total} windows`;
+
+        history.push({p: eeg.p_engaged, code: codeNum[load] || 0});
+        if (history.length > 40) history.shift();
+        histChart.data.labels           = history.map((_, i) => i + 1);
+        histChart.data.datasets[0].data = history.map(h => h.p);
+        histChart.data.datasets[1].data = history.map(h => h.code);
+        histChart.update();
+
+        pieChart.data.datasets[0].data = [counts.Engaged, counts.Resting];
+        pieChart.update();
+      }
+    })
+    .catch(() => document.getElementById('status-badge').textContent = '✗ Offline');
+}
+
+fetchBlinkRate();
+update();
+setInterval(update, 5000);
+setInterval(fetchBlinkRate, 10000);
+</script>
+</body>
+</html>
