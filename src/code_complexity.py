@@ -1,10 +1,25 @@
 import radon.complexity as rc
 import radon.metrics as rm
 
+
+def _parse_trimmed(code_text):
+    """Code sent from the editor may be cut mid-function (the extension sends at most
+    2000 characters). Drop lines from the end until radon can parse it, so we measure
+    the complete part instead of failing."""
+    lines = code_text.split('\n')
+    for cut in range(len(lines), 0, -1):
+        part = '\n'.join(lines[:cut])
+        try:
+            return rc.cc_visit(part), part
+        except Exception:
+            continue
+    raise ValueError('no parsable code')
+
+
 def analyze_code_complexity(code_text):
     try:
-        blocks = rc.cc_visit(code_text)
-        
+        blocks, code_text = _parse_trimmed(code_text)
+
         if blocks:
             scores = [block.complexity for block in blocks]
             avg_cc = sum(scores) / len(scores)
@@ -16,7 +31,7 @@ def analyze_code_complexity(code_text):
         try:
             h = rm.h_visit(code_text)
             halstead_effort = h[0].effort if h else 0
-        except:
+        except Exception:
             halstead_effort = 0
 
         lines = code_text.split('\n')
@@ -41,11 +56,12 @@ def analyze_code_complexity(code_text):
             'halstead_effort': round(halstead_effort, 2)
         }
 
-    except Exception as e:
+    except Exception:
+        # Not parsable at all (e.g. not Python): fall back to simple line counts
         lines = code_text.split('\n')
         loop_count      = sum(1 for l in lines if 'for ' in l or 'while ' in l)
         condition_count = sum(1 for l in lines if 'if ' in l)
-        
+
         if loop_count >= 2:
             level = 'High'
         elif loop_count >= 1 or condition_count >= 1:
@@ -62,7 +78,3 @@ def analyze_code_complexity(code_text):
             'function_count': 0,
             'halstead_effort': 0
         }
-
-
-def get_stew_segment_for_complexity(level, data_T, class_labels, scaler, model):
-    pass

@@ -2,13 +2,8 @@ from flask import Flask, jsonify, render_template_string, request
 import joblib
 import numpy as np
 import random
-import json
-import urllib.request
+import time
 import requests
-import scipy.io as sio
-from scipy.signal import welch
-from scipy.stats import skew, kurtosis
-import antropy as ant
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -16,23 +11,18 @@ from code_complexity import analyze_code_complexity
 
 app = Flask(__name__)
 
-print("Loading model...")
-model  = joblib.load('models/xgb_model.pkl')
-scaler = joblib.load('models/scaler_v3.pkl')
-le     = joblib.load('models/label_encoder.pkl')
-print("Model loaded!")
+# ---------------- EEG playback (brain state) ----------------
+# No EEG headset is connected. The brain state comes from recorded EEG of
+# participant P05 (Peitek et al. dataset), played back one 5-s window every 5 s.
+# The model was trained on the other 9 participants (reading code vs rest),
+# so P05 is a new, unseen person for the model.
+print("Loading EEG model and playback data...")
+prog_model = joblib.load('models/prog_model.pkl')
+PB = np.load('models/playback_p05.npz')
+PB_START = time.time()
+EEG_STEP_S = 5
+print(f"EEG playback ready: {len(PB['y'])} windows ({len(PB['y']) * EEG_STEP_S / 60:.1f} min)")
 
-print("Loading STEW dataset...")
-dataset      = sio.loadmat('data/dataset.mat')
-labels_mat   = sio.loadmat('data/class_012.mat')
-eeg_data     = dataset['dataset']
-class_labels = labels_mat['class_012'].flatten()
-data_T       = np.transpose(eeg_data, (2, 1, 0))
-print("Dataset loaded!")
-
-FS           = 128
-SEGMENT_LEN  = 640
-LABELS       = {0: 'Low', 1: 'Medium', 2: 'High'}
 suggestion_cache = {}
 last_result  = {'code_hash': '', 'load_level': 'Low', 'complexity': None,
                 'cached_suggestion': 'Keep going!', 'last_suggestion_level': ''}
@@ -44,7 +34,24 @@ OLLAMA_MODEL = "llama3.2"
 OLLAMA_TIMEOUT = 10  # seconds
 
 
+def current_eeg_state():
+    """Brain state for the current playback window: P(engaged) from the programmer model."""
+    i = int((time.time() - PB_START) / EEG_STEP_S) % len(PB['y'])
+    p = float(prog_model.predict_proba(PB['X'][i:i + 1])[0, 1])
+    return {
+        'source':     'EEG playback (recorded, participant P05, unseen by the model)',
+        'window':     i,
+        'n_windows':  int(len(PB['y'])),
+        'time_s':     i * EEG_STEP_S,
+        'p_engaged':  round(p, 3),
+        'state':      'Engaged' if p >= 0.5 else 'Resting',
+        'true_phase': 'reading code' if int(PB['y'][i]) == 1 else 'rest',
+        'snippet':    str(PB['snippet'][i])
+    }
+
+
 def get_load_from_code(code_text):
+    """Code complexity level (Low/Medium/High) from radon-based analysis."""
     complexity = analyze_code_complexity(code_text)
     load_level = complexity['level']
     print(f"Code complexity: {load_level} | "
@@ -127,11 +134,11 @@ def get_code_suggestion(code, load_level, complexity_info=None):
     return result
 
 
-def get_ollama_suggestion(code, load_level, complexity_info=None):
+def get_ollama_suggestion(code, load_level, complexity_info=None, brain_state=None):
     """
     Ask the local Ollama (llama3.2) model for a short, real suggestion
-    based on the code and its measured complexity. Falls back to the
-    rule-based suggestion if Ollama is unreachable, slow, or errors out.
+    based on the code, its measured complexity and (if given) the EEG brain state.
+    Falls back to the rule-based suggestion if Ollama is unreachable, slow, or errors out.
     """
     cache_key = f"ollama_{load_level}_{code[:30]}"
     if cache_key in suggestion_cache:
@@ -139,16 +146,18 @@ def get_ollama_suggestion(code, load_level, complexity_info=None):
 
     cc    = complexity_info.get('cyclomatic_complexity', 1) if complexity_info else 1
     loops = complexity_info.get('loop_count', 0) if complexity_info else 0
+    brain = brain_state or 'unknown'
 
     prompt = (
         "You are a concise coding assistant embedded in a cognitive-load "
-        "monitoring tool. Given the code below and its measured complexity, "
-        "give exactly ONE short, actionable suggestion (max 15 words) to "
-        "help the programmer reduce cognitive load or improve the code. "
+        "monitoring tool. Given the code below, its measured complexity and the "
+        "programmer's EEG brain state, give exactly ONE short, actionable suggestion "
+        "(max 15 words) to help the programmer reduce cognitive load or improve the code. "
         "Do not repeat the code back, do not explain, just give the single suggestion.\n\n"
-        f"Cognitive load level: {load_level}\n"
+        f"Code complexity level: {load_level}\n"
         f"Cyclomatic complexity: {cc}\n"
-        f"Loop count: {loops}\n\n"
+        f"Loop count: {loops}\n"
+        f"EEG brain state: {brain}\n\n"
         f"Code:\n{code}\n\n"
         "Suggestion:"
     )
@@ -192,18 +201,24 @@ def dashboard():
 @app.route('/')
 def home():
     return jsonify({
-        'status':   'running',
-        'message':  'Cognitive Load Detection Backend v2',
-        'model':    'XGBoost',
-        'accuracy': '82.59%'
+        'status':        'running',
+        'message':       'Cognitive Load Detection Backend v2',
+        'code_load':     'radon code complexity',
+        'brain_state':   'EEG playback, programmer model (see /eeg_state)'
     })
+
+@app.route('/eeg_state')
+def eeg_state():
+    """Brain state from EEG playback: probability that the programmer is engaged (reading code) vs resting."""
+    return jsonify(current_eeg_state())
 
 @app.route('/predict')
 def predict():
     global last_result
     code = request.args.get('code', '')
+    eeg  = current_eeg_state()
 
-    if code and len(code.strip()) > 5 and len(code) < 2000:
+    if code and len(code.strip()) > 5 and len(code) <= 2000:
         code_hash = str(hash(code.strip()))
         if code_hash == last_result['code_hash']:
             # Same code as last time — reuse everything, no new Ollama call
@@ -211,9 +226,9 @@ def predict():
             complexity_info = last_result['complexity']
             suggestion      = last_result.get('cached_suggestion', 'Keep going!')
         else:
-            # Code changed — recompute load level AND get a fresh Ollama suggestion
+            # Code changed — recompute complexity AND get a fresh Ollama suggestion
             load_level, complexity_info = get_load_from_code(code)
-            suggestion = get_ollama_suggestion(code, load_level, complexity_info)
+            suggestion = get_ollama_suggestion(code, load_level, complexity_info, eeg['state'])
             last_result['code_hash']             = code_hash
             last_result['load_level']            = load_level
             last_result['complexity']            = complexity_info
@@ -225,12 +240,12 @@ def predict():
         suggestion      = last_result.get('cached_suggestion', 'Keep going!')
 
     return jsonify({
-        'load_level':  load_level,
+        'load_level':  load_level,              # code complexity level (Low/Medium/High)
+        'load_source': 'code_complexity',
         'suggestion':  suggestion,
         'complexity':  complexity_info,
+        'eeg':         eeg,                     # brain state from EEG playback
         'eye_status':  eye_data,
-        'model':       'XGBoost',
-        'accuracy':    '82.59%',
         'status':      'success'
     })
 
@@ -241,11 +256,13 @@ def code_suggest():
         code = code[:2000]
     complexity = analyze_code_complexity(code)
     load_level = complexity['level']
-    suggestion = get_ollama_suggestion(code, load_level, complexity)
+    eeg = current_eeg_state()
+    suggestion = get_ollama_suggestion(code, load_level, complexity, eeg['state'])
     return jsonify({
         'code':       code,
         'load_level': load_level,
         'complexity': complexity,
+        'eeg':        eeg,
         'suggestion': suggestion
     })
 
@@ -290,16 +307,17 @@ def eye_status_route():
 @app.route('/status')
 def status():
     return jsonify({
-        'model':    'XGBoost',
-        'accuracy': '82.59%',
-        'features': 252,
-        'status':   'active'
+        'code_load':   'radon code complexity',
+        'brain_model': 'XGBoost, reading vs rest, trained on 9 programmers (LOSO AUC 0.86)',
+        'brain_input': 'EEG playback of participant P05 (unseen)',
+        'features':    196,
+        'status':      'active'
     })
 
 if __name__ == '__main__':
     print("="*50)
     print("  Cognitive Load Backend v2 Starting...")
-    print("  Model: XGBoost (82.59% accuracy)")
+    print("  Code load: radon complexity | Brain state: EEG playback (/eeg_state)")
     print("  Suggestion engine: Ollama (llama3.2) with rule-based fallback")
     print("  URL: http://localhost:5000")
     print("="*50)

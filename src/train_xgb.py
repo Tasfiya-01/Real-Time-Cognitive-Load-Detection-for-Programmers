@@ -1,101 +1,70 @@
+"""Clean XGBoost training: no scaler, constant columns dropped, two evaluation protocols.
+Run from the project root:  python src\\train_xgb.py
+Uses the same load_xy() / FEATURE_FILE as loso_eval.py, so all thesis numbers share one source.
+"""
 import numpy as np
+import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
-import joblib
-from xgboost import XGBClassifier
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import StratifiedShuffleSplit, GroupShuffleSplit
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from xgboost import XGBClassifier
+from common import *
+
+MODELS = ROOT / "models"
+MODELS.mkdir(exist_ok=True)
 
 print("Loading features...")
-X = np.load('data/X_features_v3.npy')
-y = np.load('data/y_labels.npy')
-print(f"X shape: {X.shape}")
+X, y, groups = load_xy()
+classes = [str(c) for c in np.unique(np.load(DATA / "y_labels.npy"))]
+print("Classes in index order (0,1,2,...):", classes)
 
-le = LabelEncoder()
-y_encoded = le.fit_transform(y)
+# Drop (near-)constant columns (the 56 Mean/Std/Var/RMS columns). Label-free.
+keep = np.flatnonzero(X.std(axis=0) > 1e-6)
+X = X[:, keep]
+print(f"Kept {len(keep)} features, X shape: {X.shape}")
+np.save(MODELS / "keep_idx.npy", keep)   # the SHAP script needs this to map names back
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
-)
 
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test  = scaler.transform(X_test)
+def make_model():
+    return XGBClassifier(n_estimators=N_EST, max_depth=6, learning_rate=0.1,
+                         eval_metric="mlogloss", random_state=SEED, n_jobs=-1)
 
-print(f"Train: {X_train.shape}")
-print(f"Test:  {X_test.shape}")
 
-print("\nTraining XGBoost...")
-xgb = XGBClassifier(
-    n_estimators=300,
-    max_depth=6,
-    learning_rate=0.1,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    use_label_encoder=False,
-    eval_metric='mlogloss',
-    random_state=42,
-    n_jobs=-1
-)
-xgb.fit(X_train, y_train)
+def run(title, tr, te):
+    m = make_model()
+    m.fit(X[tr], y[tr])
+    p = m.predict(X[te])
+    acc = accuracy_score(y[te], p)
+    print("\n" + "=" * 60)
+    print(f"{title}: {acc*100:.2f}%  (train {len(tr)}, test {len(te)})")
+    print("=" * 60)
+    print(classification_report(y[te], p, target_names=classes, zero_division=0))
+    return m, p, acc
 
-y_pred = xgb.predict(X_test)
-acc = accuracy_score(y_test, y_pred)
 
-print("\n" + "="*50)
-print(f"XGBoost Accuracy: {acc*100:.2f}%")
-print("="*50)
+# 1) Subject-mixed stratified 80/20: the old headline protocol (segments of the same
+#    subject appear in train AND test, so it is leaky).
+tr, te = next(StratifiedShuffleSplit(1, test_size=0.2, random_state=SEED).split(X, y))
+m_mixed, p_mixed, acc_mixed = run("Subject-MIXED 80/20 (leaky)", tr, te)
 
-print("\nClassification Report:")
-print(classification_report(
-    y_test, y_pred,
-    target_names=['Low', 'Medium', 'High']
-))
-
-print("\nCross Validation (5-fold)...")
-cv_scores = cross_val_score(xgb, X_train, y_train, cv=5, scoring='accuracy')
-print(f"CV Scores: {cv_scores}")
-print(f"Mean CV Accuracy: {cv_scores.mean()*100:.2f}%")
+# 2) Subject-held-out 80/20: whole subjects are test-only. Single split of ~9 subjects,
+#    so it is noisy; the LOSO numbers from loso_eval.py are the reliable ones.
+tr2, te2 = next(GroupShuffleSplit(1, test_size=0.2, random_state=SEED).split(X, y, groups))
+m_subj, p_subj, acc_subj = run("Subject-HELD-OUT 80/20", tr2, te2)
 
 print("\nSaving model...")
-joblib.dump(xgb, 'models/xgb_model.pkl')
-joblib.dump(scaler, 'models/scaler_v3.pkl')
-joblib.dump(le, 'models/label_encoder.pkl')
-print("Saved!")
+joblib.dump(m_mixed, MODELS / "xgb_model_clean.pkl")
+print("Saved models/xgb_model_clean.pkl and models/keep_idx.npy")
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-models_compare = {
-    'Original KNN\n(v1)': 77.78,
-    'Random Forest\n(v2)': 78.52,
-    f'XGBoost\n(v3)': acc*100
-}
-colors = ['steelblue', 'steelblue', 'green']
-axes[0].bar(models_compare.keys(), models_compare.values(), color=colors)
-axes[0].set_title('Accuracy Improvement Over Versions')
-axes[0].set_ylabel('Accuracy (%)')
-axes[0].set_ylim([70, 100])
-for i, (n, a) in enumerate(models_compare.items()):
-    axes[0].text(i, a+0.3, f'{a:.2f}%', ha='center', fontsize=11)
-axes[0].grid(True, alpha=0.3)
-
-cm = confusion_matrix(y_test, y_pred)
-sns.heatmap(cm, annot=True, fmt='d', ax=axes[1],
-            xticklabels=['Low', 'Medium', 'High'],
-            yticklabels=['Low', 'Medium', 'High'],
-            cmap='Blues')
-axes[1].set_title(f'XGBoost Confusion Matrix\nAccuracy: {acc*100:.1f}%')
-axes[1].set_ylabel('Actual')
-axes[1].set_xlabel('Predicted')
-
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+for ax, (t, yt, pt, a) in zip(axes, [("Subject-mixed (leaky)", y[te], p_mixed, acc_mixed),
+                                     ("Subject-held-out", y[te2], p_subj, acc_subj)]):
+    sns.heatmap(confusion_matrix(yt, pt), annot=True, fmt="d", cmap="Blues", ax=ax,
+                xticklabels=classes, yticklabels=classes)
+    ax.set_title(f"{t}\nAccuracy: {a*100:.1f}%")
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
 plt.tight_layout()
-plt.savefig('results/xgb_results.png', dpi=150)
-plt.show()
-print("Plot saved!")
-
-print(f"\nSummary:")
-print(f"Original paper (SVM):  69.00%")
-print(f"Our KNN (v1):          77.78%")
-print(f"Random Forest (v2):    78.52%")
-print(f"XGBoost (v3):          {acc*100:.2f}%")
+plt.savefig(OUT / "xgb_results_clean.png", dpi=150)
+print("Plot saved: results/xgb_results_clean.png")

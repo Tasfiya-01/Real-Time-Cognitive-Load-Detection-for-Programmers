@@ -12,6 +12,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; }
 .header h1 { font-size: 22px; font-weight: 600; }
 .header span { font-size: 13px; color: #8892b0; }
 .badge { background: #00d4aa22; color: #00d4aa; padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid #00d4aa44; }
+.badge.warn { background: #f0a50022; color: #f0a500; border-color: #f0a50044; }
 .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 30px 40px; }
 .card { background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
 .card h3 { font-size: 12px; color: #8892b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
@@ -36,6 +37,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; }
 .shap-list { list-style: none; }
 .shap-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #2d356133; font-size: 13px; }
 .shap-bar { height: 6px; background: linear-gradient(90deg, #00d4aa, #2d3561); border-radius: 3px; }
+.note { margin-top: 10px; font-size: 11px; color: #8892b0; }
 .bvi-section { margin: 0 40px 30px; background: #1a1f2e; border-radius: 12px; padding: 20px; border: 1px solid #2d3561; }
 .bvi-section h3 { font-size: 14px; color: #ccd6f6; margin-bottom: 15px; }
 .bvi-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: center; }
@@ -58,12 +60,11 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; }
 <div class="header">
   <div>
     <h1>🧠 Cognitive Load Monitor</h1>
-    <span>EEG-Based Real-Time Detection | STEW Dataset | XGBoost</span>
+    <span>Code-complexity load monitor | EEG research: STEW Dataset | XGBoost</span>
   </div>
   <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
-    <span class="badge">✓ Model: XGBoost</span>
-    <span class="badge">✓ Accuracy: 82.59%</span>
-    <span class="badge">✓ p = 0.00013</span>
+    <span class="badge">Model: XGBoost</span>
+    <span class="badge warn">Held-out accuracy: 40% (chance 40%)</span>
     <select class="profile-select" id="profile-select" onchange="setProfile(this.value)">
       <option value="Beginner">Beginner</option>
       <option value="Intermediate" selected>Intermediate</option>
@@ -83,9 +84,9 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; }
     <div class="sub" id="load-sub">Waiting for data...</div>
   </div>
   <div class="card">
-    <h3>Model Accuracy</h3>
-    <div class="value low">82.59%</div>
-    <div class="sub">XGBoost + Entropy Features</div>
+    <h3>EEG Model Accuracy</h3>
+    <div class="value high">40%</div>
+    <div class="sub">Unseen subjects (LOSO). Random split: 81.9%, inflated by subject leakage</div>
   </div>
   <div class="card">
     <h3>Features Used</h3>
@@ -127,7 +128,7 @@ def bubble_sort(arr):
         <span>High Risk (70-100%)</span>
       </div>
       <div class="bvi-formula">
-        BVI = (0.35 × CC) + (0.35 × EEG Load) + (0.15 × SHAP) + (0.15 × Eye Score)
+        BVI = (0.35 × CC) + (0.35 × Load level) + (0.15 × SHAP) + (0.15 × Eye Score)
       </div>
     </div>
   </div>
@@ -153,16 +154,20 @@ def bubble_sort(arr):
   <div class="suggestion-box">
     <h3>🧠 Top SHAP Features</h3>
     <ul class="shap-list">
-      <li><div class="shap-bar" style="width:100px"></div> AF3_Std <span style="margin-left:auto;color:#8892b0;">0.247</span></li>
-      <li><div class="shap-bar" style="width:95px"></div> F3_Std <span style="margin-left:auto;color:#8892b0;">0.246</span></li>
-      <li><div class="shap-bar" style="width:85px"></div> T7_Beta/Alpha <span style="margin-left:auto;color:#8892b0;">0.217</span></li>
-      <li><div class="shap-bar" style="width:75px"></div> AF3_Kurt <span style="margin-left:auto;color:#8892b0;">0.197</span></li>
-      <li><div class="shap-bar" style="width:70px"></div> AF4_Std <span style="margin-left:auto;color:#8892b0;">0.193</span></li>
+      <li><div class="shap-bar" style="width:100px"></div> T7_PermEn <span style="margin-left:auto;color:#8892b0;">0.297</span></li>
+      <li><div class="shap-bar" style="width:63px"></div> F3_SampEn <span style="margin-left:auto;color:#8892b0;">0.186</span></li>
+      <li><div class="shap-bar" style="width:62px"></div> F3_PermEn <span style="margin-left:auto;color:#8892b0;">0.184</span></li>
+      <li><div class="shap-bar" style="width:57px"></div> T7_Beta/Alpha <span style="margin-left:auto;color:#8892b0;">0.169</span></li>
+      <li><div class="shap-bar" style="width:55px"></div> P7_PermEn <span style="margin-left:auto;color:#8892b0;">0.164</span></li>
     </ul>
+    <div class="note">Features the EEG model relies on most. This may reflect subject identity, not load.</div>
   </div>
 </div>
 
 <script>
+// Works from the backend (port 5000) and from Live Server (port 5500)
+const API = location.port === '5000' ? '' : 'http://localhost:5000';
+
 const history = [];
 const counts  = {Low: 0, Medium: 0, High: 0};
 let   cachedCode  = '';
@@ -204,7 +209,7 @@ const pieChart = new Chart(pieCtx, {
 });
 
 function setProfile(level) {
-  fetch('/set_profile?level=' + level)
+  fetch(API + '/set_profile?level=' + level)
     .then(r => r.json())
     .then(data => {
       document.getElementById('profile-display').textContent = data.level;
@@ -256,7 +261,7 @@ function updateBVI(bvi) {
 
 // Get blink rate from eye tracking backend if available
 function fetchBlinkRate() {
-  fetch('/eye_status')
+  fetch(API + '/eye_status')
     .then(r => r.json())
     .then(data => { blinkRate = data.blink_rate; })
     .catch(() => { blinkRate = undefined; });
@@ -264,7 +269,7 @@ function fetchBlinkRate() {
 
 function update() {
   const code = document.getElementById('code-input').value || '';
-  fetch('/predict?code=' + encodeURIComponent(code))
+  fetch(API + '/predict?code=' + encodeURIComponent(code))
     .then(r => r.json())
     .then(data => {
       const load     = data.load_level;
@@ -275,7 +280,7 @@ function update() {
       document.getElementById('load-value').textContent      = load;
       document.getElementById('load-value').className        = `value ${classMap[load]}`;
       document.getElementById('load-dot').className          = `dot ${classMap[load]}`;
-      document.getElementById('load-sub').textContent        = new Date().toLocaleTimeString();
+      document.getElementById('load-sub').textContent        = 'From code complexity · ' + new Date().toLocaleTimeString();
       document.getElementById('suggestion-text').textContent = data.suggestion || 'Getting suggestion...';
       document.getElementById('status-badge').textContent    = '✓ Live';
 

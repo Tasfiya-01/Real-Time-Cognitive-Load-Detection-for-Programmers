@@ -1,0 +1,123 @@
+
+Filename              LineNumber Line                                                                                                         
+--------              ---------- ----                                                                                                         
+diag.py                       53     p = DATA / "X_processed.npy"                                                                             
+diag.py                       57         print(f"\n[3] Columns that exactly match simple stats of data/X_processed.npy: {len(m)}")            
+diag.py                       65         print("\n[3] data/X_processed.npy not found, skipping layout probe")                                 
+fix_entropy.py                 5 X_proc = np.load("data/X_processed.npy")          # (1350, 640, 14)                                          
+old_features.py                7 X = np.load('data/X_processed.npy')  # (1350, 640, 14)                                                       
+old_preprocess.py             79 np.save('data/X_processed.npy', X_norm)                                                                      
+old_preprocess.py             81 print("Saved! X_processed.npy and y_labels.npy")                                                             
+old_train_model_v2.py         12 X_raw = np.load('data/X_processed.npy')  # (1350, 640, 14)                                                   
+step2_ablation.py             14     p = DATA / "X_processed.npy"                                                                             
+step3_features.py              1 """Step 3: build NEW scale-free features from data/X_processed.npy (bandpass + z-score, shape (1350,640,14)).
+step3_features.py             37     seg = np.load(DATA / "X_processed.npy").astype(np.float64)                                               
+
+
+
+
+===== old_preprocess.py =====
+import scipy.io as sio
+import numpy as np
+from scipy import signal
+import matplotlib.pyplot as plt
+
+# ===== STEP 1: Data Load =====
+print("Step 1: Loading data...")
+dataset      = sio.loadmat('data/dataset.mat')
+labels_mat   = sio.loadmat('data/class_012.mat')
+
+eeg_data     = dataset['dataset']        # (14, 19200, 45)
+class_labels = labels_mat['class_012']  # (45, 1)
+
+print(f"EEG shape: {eeg_data.shape}")
+print(f"Labels: {class_labels.flatten()}")
+
+# ===== STEP 2: Transpose =====
+print("\nStep 2: Reshaping...")
+# (14, 19200, 45) → (45, 19200, 14)
+data_T = np.transpose(eeg_data, (2, 1, 0))
+labels_flat = class_labels.flatten()  # (45,)
+print(f"Reshaped: {data_T.shape}")
+
+# ===== STEP 3: Segmentation =====
+print("\nStep 3: Segmenting into 5-second windows...")
+SEGMENT_LEN = 640  # 5 sec × 128 Hz
+FS = 128
+
+segments = []
+seg_labels = []
+
+for i in range(data_T.shape[0]):  # 45 subjects
+    subject_data = data_T[i]  # (19200, 14)
+    n_seg = subject_data.shape[0] // SEGMENT_LEN
+
+    for j in range(n_seg):
+        start = j * SEGMENT_LEN
+        end   = start + SEGMENT_LEN
+        seg   = subject_data[start:end, :]  # (640, 14)
+        segments.append(seg)
+        seg_labels.append(labels_flat[i])
+
+X_raw = np.array(segments)   # (N, 640, 14)
+y     = np.array(seg_labels) # (N,)
+print(f"Total segments: {X_raw.shape}")
+print(f"Label distribution: {np.unique(y, return_counts=True)}")
+
+# ===== STEP 4: Band-pass Filter =====
+print("\nStep 4: Filtering (0.5-50 Hz)...")
+
+def bandpass_filter(segment, lowcut=0.5, highcut=50.0, fs=128):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = signal.butter(4, [low, high], btype='band')
+    filtered = np.zeros_like(segment)
+    for ch in range(segment.shape[1]):
+        filtered[:, ch] = signal.filtfilt(b, a, segment[:, ch])
+    return filtered
+
+X_filtered = np.array([bandpass_filter(seg) for seg in X_raw])
+print(f"Filtered shape: {X_filtered.shape}")
+
+# ===== STEP 5: Normalize =====
+print("\nStep 5: Normalizing...")
+
+def normalize(segment):
+    normalized = np.zeros_like(segment)
+    for ch in range(segment.shape[1]):
+        ch_data = segment[:, ch]
+        normalized[:, ch] = (ch_data - np.mean(ch_data)) / (np.std(ch_data) + 1e-8)
+    return normalized
+
+X_norm = np.array([normalize(seg) for seg in X_filtered])
+print(f"Normalized shape: {X_norm.shape}")
+
+# ===== STEP 6: Save =====
+print("\nStep 6: Saving...")
+np.save('data/X_processed.npy', X_norm)
+np.save('data/y_labels.npy', y)
+print("Saved! X_processed.npy and y_labels.npy")
+
+# ===== STEP 7: Plot =====
+print("\nStep 7: Plotting...")
+fig, axes = plt.subplots(2, 1, figsize=(14, 6))
+
+axes[0].plot(X_raw[0][:, 0], color='red', alpha=0.8)
+axes[0].set_title('Raw EEG Signal (Channel 1)', fontsize=13)
+axes[0].set_xlabel('Time (samples)')
+axes[0].set_ylabel('Amplitude')
+axes[0].grid(True)
+
+axes[1].plot(X_norm[0][:, 0], color='green', alpha=0.8)
+axes[1].set_title('Filtered & Normalized EEG Signal', fontsize=13)
+axes[1].set_xlabel('Time (samples)')
+axes[1].set_ylabel('Amplitude')
+axes[1].grid(True)
+
+plt.tight_layout()
+plt.savefig('results/preprocessing_plot.png', dpi=150)
+plt.show()
+print("Plot saved in results folder!")
+
+print("\n Preprocessing complete!")
