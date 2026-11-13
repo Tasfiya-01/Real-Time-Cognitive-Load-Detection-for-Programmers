@@ -4,13 +4,15 @@ import joblib
 import numpy as np
 import random
 import scipy.io as sio
+import os
+from flask import Flask
 from scipy.signal import welch
 from scipy.stats import skew, kurtosis
 
 app = Flask(__name__)
 
 # Gemini API setup
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+
 gemini = genai.GenerativeModel('gemini-2.0-flash')
 
 # Model load
