@@ -3,7 +3,7 @@
 B.Sc. thesis, Department of Computer Science and Engineering, Pundra University of Science & Technology (PUST), Bogura, Bangladesh, 2026.
 
 **Authors:** Nur E Tasfiya (0322310205101001), Mahabub A Elahi Rahat (0322310105101046)
-**Supervisor:** Mst. Rehena Khatun, Assistant Professor, Dept. of CSE, PUST
+**Supervisor:** Mst. Rehena Khatun, Assistant Professor, Dept. of CSE, PUB
 
 ---
 
@@ -11,7 +11,7 @@ B.Sc. thesis, Department of Computer Science and Engineering, Pundra University 
 
 EEG detects **engagement** in code comprehension robustly, but detects the **difficulty level** of the code only weakly. This repository contains the experiments that show this, and a VS Code tool built on the signal that survived validation.
 
-## What this project does
+## What this thesis does
 
 1. **Tests an assumption.** Workload models for programmers are often trained on generic EEG tasks and assumed to transfer to programming. We train a model on the STEW workload dataset and test it on real EEG from programmers reading Java code.
 2. **Finds the signal that does work.** We train a programmer-specific EEG model, explain it with SHAP, and replicate the result on a second, independent programmer dataset.
