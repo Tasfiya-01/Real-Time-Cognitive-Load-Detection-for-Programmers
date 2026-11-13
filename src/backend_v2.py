@@ -42,7 +42,9 @@ print(f"Snippets loaded: {len(SNIPPETS)}")
 suggestion_cache = {}
 last_result  = {'code_hash': '', 'load_level': 'Low', 'complexity': None,
                 'cached_suggestion': 'Keep going!', 'last_suggestion_level': ''}
-eye_data     = {'blink_rate': 0, 'eye_load': 'Low'}
+# Webcam eye tracker (src/eye_tracking.py) posts here every 5 s. None = no webcam data.
+eye_data     = {'blink_rate': None, 'eye_load': None, 'detector': None, 'updated': 0.0}
+EYE_STALE_S  = 15   # older eye data is treated as missing
 
 # ---------------- Ollama config ----------------
 OLLAMA_URL   = "http://localhost:11434/api/generate"
@@ -77,7 +79,12 @@ def current_eeg_state():
 
 def get_load_from_code(code_text):
     """Code complexity level (Low/Medium/High) from radon-based analysis."""
-    complexity = analyze_code_complexity(code_text)
+    try:
+        from personalized_threshold import get_thresholds
+        thresholds = get_thresholds()          # profile chosen on the dashboard (default Intermediate)
+    except Exception:
+        thresholds = None
+    complexity = analyze_code_complexity(code_text, thresholds)
     load_level = complexity['level']
     print(f"Code complexity: {load_level} | "
           f"CC: {complexity['cyclomatic_complexity']}, "
@@ -243,7 +250,8 @@ def predict():
     code = request.args.get('code', '')
     eeg  = current_eeg_state()
 
-    if code and len(code.strip()) > 5 and len(code) < 2000:
+    code = code[:2000]                     # the extension sends at most 2,000 characters
+    if code and len(code.strip()) > 5:
         code_hash = str(hash(code.strip()))
         if code_hash == last_result['code_hash']:
             # Same code as last time — reuse everything, no new Ollama call
@@ -270,7 +278,7 @@ def predict():
         'suggestion':  suggestion,
         'complexity':  complexity_info,
         'eeg':         eeg,                     # brain state from EEG playback
-        'eye_status':  eye_data,
+        'eye_status':  eye_status(),
         'status':      'success'
     })
 
@@ -319,15 +327,29 @@ def predict_personalized():
         'status':      'success'
     })
 
+def eye_status():
+    """Latest webcam blink data, or None values if the eye tracker is not running."""
+    fresh = time.time() - eye_data.get('updated', 0) < EYE_STALE_S
+    return {'blink_rate': eye_data.get('blink_rate') if fresh else None,
+            'eye_load':   eye_data.get('eye_load') if fresh else None,
+            'detector':   eye_data.get('detector') if fresh else None,
+            'active':     fresh}
+
 @app.route('/update_eye', methods=['POST'])
 def update_eye():
     global eye_data
-    eye_data = request.get_json()
+    d = request.get_json(silent=True) or {}
+    try:
+        br = float(d.get('blink_rate'))
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'blink_rate missing'}), 400
+    eye_data = {'blink_rate': round(br, 1), 'eye_load': d.get('eye_load'),
+                'detector': d.get('detector'), 'updated': time.time()}
     return jsonify({'status': 'ok'})
 
 @app.route('/eye_status')
 def eye_status_route():
-    return jsonify(eye_data)
+    return jsonify(eye_status())
 
 @app.route('/status')
 def status():

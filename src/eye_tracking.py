@@ -1,98 +1,211 @@
-import cv2
-import time
-import requests
+"""Webcam blink-rate tracker for the dashboard's Bug Vulnerability Index (eye score).
 
-def run():
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("Webcam not found!")
-        return
+Detector (chosen automatically, best first):
+  1. MediaPipe Face Landmarker (478 face-mesh landmarks) + eye aspect ratio (EAR)
+       EAR = (|p2 - p6| + |p3 - p5|) / (2 |p1 - p4|); eye counted as closed when EAR falls below
+       75% of the person's own open-eye EAR (90th percentile of the last 5 s), because open-eye EAR
+       differs between people (about 0.22-0.35). --ear 0.25 sets a fixed threshold instead.
+  2. OpenCV Haar cascades (fallback if MediaPipe is not installed): eyes not found while the face is found
+A blink = eye closed for 50-500 ms (longer closures are not counted as blinks).
+Blink rate = blinks in the last 60 s (scaled up during the first minute), sent to the backend every 5 s.
 
-    blink_count    = 0
-    eye_closed     = False
-    start_time     = time.time()
-    prev_eye_count = 2
+Usage:  python src\\eye_tracking.py                 (window with overlay, press Q to quit)
+        python src\\eye_tracking.py --detector opencv
+        python src\\eye_tracking.py --camera 1 --no-window
+Needs:  pip install opencv-python requests   (optional, better: pip install mediapipe)
+The MediaPipe model file (about 4 MB) is downloaded once to models/face_landmarker.task.
+"""
+import argparse, threading, time, urllib.request
+from collections import deque
+from pathlib import Path
+import numpy as np, cv2, requests
 
-    face_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-    )
-    eye_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + 'haarcascade_eye.xml'
-    )
+MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/face_landmarker/"
+             "face_landmarker/float16/1/face_landmarker.task")
+MODEL_PATH = Path("models/face_landmarker.task")
+# Face-mesh landmark indices p1..p6 for each eye (outer corner, two upper lid, inner corner, two lower lid)
+LEFT_EYE  = [33, 160, 158, 133, 153, 144]
+RIGHT_EYE = [362, 385, 387, 263, 373, 380]
 
-    print("Eye Tracking Started! Press Q to quit.")
-    print("="*50)
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+def ear(pts):
+    """Eye aspect ratio from six (x, y) points p1..p6."""
+    p1, p2, p3, p4, p5, p6 = [np.asarray(p, float) for p in pts]
+    return (np.linalg.norm(p2 - p6) + np.linalg.norm(p3 - p5)) / (2.0 * np.linalg.norm(p1 - p4) + 1e-9)
 
-        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-        eye_count = 0
-        for (x, y, w, h) in faces:
-            roi_gray = gray[y:y+h, x:x+w]
-            eyes     = eye_cascade.detectMultiScale(roi_gray)
-            eye_count = len(eyes)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 255, 0), 1)
+class BlinkCounter:
+    """Turns a stream of (time, eye_closed) samples into blinks and a blink rate."""
+    def __init__(self, min_s=0.05, max_s=0.5, window_s=60.0):
+        self.min_s, self.max_s, self.window_s = min_s, max_s, window_s
+        self.closed_since = None
+        self.blinks = deque()
+        self.start = None
+        self.total = 0
 
-        if eye_count < 2 and prev_eye_count >= 2:
-            if not eye_closed:
-                blink_count += 1
-                eye_closed = True
-        elif eye_count >= 2:
-            eye_closed = False
-        prev_eye_count = eye_count
+    def update(self, t, closed):
+        if self.start is None:
+            self.start = t
+        if closed is None:                      # no face: reset the closure, count nothing
+            self.closed_since = None
+            return
+        if closed and self.closed_since is None:
+            self.closed_since = t
+        elif not closed and self.closed_since is not None:
+            dur = t - self.closed_since
+            self.closed_since = None
+            if self.min_s <= dur <= self.max_s:
+                self.blinks.append(t); self.total += 1
+        while self.blinks and t - self.blinks[0] > self.window_s:
+            self.blinks.popleft()
 
-        elapsed    = max(time.time() - start_time, 1)
-        blink_rate = int(blink_count * (60 / elapsed))
+    def rate(self, t):
+        """Blinks per minute over the last 60 s; None during the first 10 s."""
+        if self.start is None or t - self.start < 10:
+            return None
+        span = min(self.window_s, t - self.start)
+        return round(len(self.blinks) * 60.0 / span, 1)
 
-        # Both too high (>25) AND too low (<8) = stress/fatigue
-        if blink_rate > 25 or blink_rate < 8:
-            eye_load = 'High'
-            color    = (0, 0, 255)
-        elif blink_rate > 18 or blink_rate < 12:
-            eye_load = 'Medium'
-            color    = (0, 165, 255)
+
+def eye_load(rate):
+    # same hand-set bands as the dashboard eye score (design concept, not validated)
+    if rate is None: return None
+    if rate > 25 or rate < 8: return "High"
+    if rate > 18 or rate < 12: return "Medium"
+    return "Low"
+
+
+class AdaptiveThreshold:
+    """Per-person blink threshold: ratio x open-eye EAR (90th percentile of recent frames)."""
+    def __init__(self, ratio=0.75, window_s=5.0):
+        self.ratio, self.window_s, self.hist = ratio, window_s, deque()
+        self.baseline = None
+    def __call__(self, t, e):
+        self.hist.append((t, e))
+        while t - self.hist[0][0] > self.window_s: self.hist.popleft()
+        if len(self.hist) >= 10:
+            self.baseline = float(np.percentile([v for _, v in self.hist], 90))
+        return None if self.baseline is None else self.ratio * self.baseline
+
+
+class MediaPipeDetector:
+    name = "MediaPipe Face Mesh + EAR"
+    def __init__(self, ear_threshold):
+        import mediapipe as mp
+        self.mp, self.fixed, self.legacy = mp, ear_threshold, None
+        self.adapt, self.thr, self.ears = AdaptiveThreshold(), None, []
+        if hasattr(mp, "solutions"):            # older MediaPipe (< 0.10.30): Face Mesh solution
+            self.legacy = mp.solutions.face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=False)
+            return
+        from mediapipe.tasks.python import BaseOptions, vision
+        if not MODEL_PATH.exists():
+            MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+            print("Downloading MediaPipe face model (once)...")
+            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        opts = vision.FaceLandmarkerOptions(base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
+                                            running_mode=vision.RunningMode.VIDEO, num_faces=1)
+        self.lm = vision.FaceLandmarker.create_from_options(opts)
+        self.t0 = time.time()
+
+    def __call__(self, frame):
+        """Returns (eye_closed or None if no face, EAR or None)."""
+        h, w = frame.shape[:2]
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if self.legacy is not None:
+            res = self.legacy.process(rgb)
+            if not res.multi_face_landmarks: return None, None
+            lms = res.multi_face_landmarks[0].landmark
         else:
-            eye_load = 'Low'
-            color    = (0, 200, 0)
+            img = self.mp.Image(image_format=self.mp.ImageFormat.SRGB, data=rgb)
+            res = self.lm.detect_for_video(img, int((time.time() - self.t0) * 1000))
+            if not res.face_landmarks: return None, None
+            lms = res.face_landmarks[0]
+        P = lambda idx: [(lms[i].x * w, lms[i].y * h) for i in idx]
+        e = (ear(P(LEFT_EYE)) + ear(P(RIGHT_EYE))) / 2
+        self.ears.append(e)
+        self.thr = self.fixed if self.fixed else self.adapt(time.time(), e)
+        if self.thr is None: return False, e          # first frames: learn the open-eye EAR
+        return e < self.thr, e
 
-        cv2.putText(frame, f"Blink Rate: {blink_rate}/min", (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-        cv2.putText(frame, f"Eye Load:   {eye_load}",       (20, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-        cv2.putText(frame, f"Eyes seen:  {eye_count}",      (20, 115),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
-        cv2.putText(frame, f"Blinks:     {blink_count}",    (20, 140),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
-        cv2.putText(frame, "Press Q to quit",               (20, 175),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
 
-        # Send to backend every 5 seconds
-        if int(elapsed) % 5 == 0 and int(elapsed) > 0:
-            try:
-                requests.post(
-                    'http://localhost:5000/update_eye',
-                    json={'blink_rate': blink_rate, 'eye_load': eye_load},
-                    timeout=1
-                )
-            except:
-                pass
+class HaarDetector:
+    name = "OpenCV Haar cascades"
+    def __init__(self, *_):
+        self.face = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        self.eye = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+        if self.face.empty() or self.eye.empty():
+            raise RuntimeError("OpenCV Haar cascade files not found. Install MediaPipe (pip install mediapipe) "
+                               "or opencv-python 4.x (pip install \"opencv-python<5\").")
 
-        cv2.imshow('Eye Tracking - Cognitive Load Monitor', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    def __call__(self, frame):
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face.detectMultiScale(gray, 1.3, 5)
+        if len(faces) == 0: return None, None
+        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+        top = gray[y:y + h // 2 + h // 10, x:x + w]          # eyes are in the upper half of the face
+        eyes = self.eye.detectMultiScale(top, 1.1, 6, minSize=(w // 10, w // 10))
+        return len(eyes) == 0, None
 
-    cap.release()
-    cv2.destroyAllWindows()
-    print(f"\nSession Summary:")
-    print(f"  Total Blinks:  {blink_count}")
-    print(f"  Blink Rate:    {blink_rate}/min")
-    print(f"  Eye Load:      {eye_load}")
-    print(f"  Duration:      {int(elapsed)}s")
 
-if __name__ == '__main__':
-    run()
+def make_detector(kind, thr):
+    if kind in ("auto", "mediapipe"):
+        try:
+            return MediaPipeDetector(thr)
+        except Exception as e:
+            if kind == "mediapipe": raise
+            print(f"MediaPipe not available ({type(e).__name__}: {e}); using OpenCV Haar cascades.")
+    return HaarDetector()
+
+
+def post(url, payload):
+    try: requests.post(url, json=payload, timeout=1)
+    except Exception: pass
+
+
+def run(args):
+    det = make_detector(args.detector, args.ear)
+    cap = cv2.VideoCapture(args.camera)
+    if not cap.isOpened():
+        print("Webcam not found. Try --camera 1."); return
+    bc, last_post = BlinkCounter(), 0.0
+    print(f"Eye tracking started ({det.name}). Sending to {args.backend}/update_eye every 5 s. Press Q to quit.")
+    while True:
+        ok, frame = cap.read()
+        if not ok: break
+        t = time.time()
+        closed, e = det(frame)
+        bc.update(t, closed)
+        rate = bc.rate(t)
+        if t - last_post >= 5 and rate is not None:
+            last_post = t
+            threading.Thread(target=post, daemon=True, args=(args.backend + "/update_eye",
+                             {"blink_rate": rate, "eye_load": eye_load(rate), "detector": det.name})).start()
+        if not args.no_window:
+            col = {"High": (0, 0, 255), "Medium": (0, 165, 255), "Low": (0, 200, 0)}.get(eye_load(rate), (200, 200, 200))
+            lines = [f"Blink rate: {rate if rate is not None else 'measuring...'} /min",
+                     f"Eye load:   {eye_load(rate) or '-'}",
+                     f"Blinks: {bc.total}   Face: {'yes' if closed is not None else 'no'}"
+                     + (f"   EAR: {e:.2f}" if e is not None else "")
+                     + (f"  thr: {det.thr:.2f}" if getattr(det, "thr", None) else ""),
+                     f"{det.name} | Q to quit"]
+            for k, s in enumerate(lines):
+                cv2.putText(frame, s, (15, 30 + 28 * k), cv2.FONT_HERSHEY_SIMPLEX, 0.65 if k < 2 else 0.5,
+                            col if k < 2 else (220, 220, 220), 2 if k < 2 else 1)
+            cv2.imshow("Eye tracking - blink rate", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"): break
+    cap.release(); cv2.destroyAllWindows()
+    print(f"Session: {bc.total} blinks, last rate {bc.rate(time.time())}/min")
+    if getattr(det, "ears", None):
+        a = np.array(det.ears)
+        print(f"EAR open-eye (90th pct) {np.percentile(a, 90):.3f}, median {np.median(a):.3f}, "
+              f"10th pct {np.percentile(a, 10):.3f}; threshold {'fixed ' + str(det.fixed) if det.fixed else 'adaptive, last %.3f' % (det.thr or 0)}")
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--camera", type=int, default=0)
+    ap.add_argument("--detector", choices=["auto", "mediapipe", "opencv"], default="auto")
+    ap.add_argument("--ear", type=float, default=None, help="fixed EAR blink threshold (default: adaptive)")
+    ap.add_argument("--backend", default="http://localhost:5000")
+    ap.add_argument("--no-window", action="store_true")
+    run(ap.parse_args())

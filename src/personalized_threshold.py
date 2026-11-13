@@ -4,7 +4,7 @@ import os
 PROFILE_FILE = 'data/user_profile.json'
 
 DEFAULT_THRESHOLDS = {
-    'Beginner':     {'high_cc': 3, 'medium_cc': 1, 'high_loops': 1, 'medium_loops': 1},
+    'Beginner':     {'high_cc': 3, 'medium_cc': 2, 'high_loops': 1, 'medium_loops': 1},
     'Intermediate': {'high_cc': 4, 'medium_cc': 2, 'high_loops': 2, 'medium_loops': 1},
     'Expert':       {'high_cc': 6, 'medium_cc': 3, 'high_loops': 3, 'medium_loops': 2},
 }

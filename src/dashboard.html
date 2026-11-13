@@ -262,6 +262,7 @@ pre.screen.rest { display: grid; place-items: center; color: var(--muted); font-
         <div>
           <div class="risk" id="bvi-risk">Paste code to estimate</div>
           <div class="formula">Bug Vulnerability Index = 0.35 × complexity + 0.35 × brain engagement (30-second average) + 0.15 × SHAP + 0.15 × eye score</div>
+          <div class="formula" id="eye-line">Eye: checking webcam tracker…</div>
         </div>
       </div>
       <div class="suggest" aria-live="polite">
@@ -369,7 +370,7 @@ const share = new Chart(document.getElementById('share'), {
 
 // ---------- state ----------
 const hist = [], recentP = [];
-let agree = 0, total = 0, engagedN = 0, lastWindow = -1, blinkRate;
+let agree = 0, total = 0, engagedN = 0, lastWindow = -1, blinkRate = null, eyeDetector = null;
 const CODE_NUM = { Low: 0.33, Medium: 0.67, High: 1.0 };
 let mode = 'replay';
 
@@ -392,15 +393,28 @@ function setProfile(level) {
   fetch(API + '/set_profile?level=' + level).then(r => r.json()).then(update).catch(() => {});
 }
 function fetchBlinkRate() {
-  fetch(API + '/eye_status').then(r => r.json()).then(d => { blinkRate = d.blink_rate; }).catch(() => { blinkRate = undefined; });
+  fetch(API + '/eye_status').then(r => r.json())
+    .then(d => { blinkRate = d.blink_rate; eyeDetector = d.detector; showEye(); })
+    .catch(() => { blinkRate = null; showEye(); });
+}
+function eyeScore(br) {
+  // hand-set mapping (design concept): unusually high or low blink rate = higher load score
+  if (br == null) return 0.3;                       // no webcam data: neutral value
+  return (br > 25 || br < 8) ? 1.0 : (br > 18 || br < 12) ? 0.5 : 0.2;
+}
+function showEye() {
+  const el = document.getElementById('eye-line');
+  if (!el) return;
+  el.textContent = blinkRate == null
+    ? 'Eye: webcam tracker not running (eye score fixed at 0.3). Start: python src\\eye_tracking.py'
+    : `Eye: ${blinkRate} blinks/min (${eyeDetector || 'webcam'}), eye score ${eyeScore(blinkRate)}`;
 }
 
 function bvi(pEngaged, complexity, br) {
   const load = (pEngaged == null) ? 0.5 : pEngaged;
   const cc   = Math.min(complexity.max_complexity / 10, 1);
   const shap = 0.247 / 1.9871;
-  let eye = 0.3;
-  if (br !== undefined) eye = (br > 25 || br < 8) ? 1.0 : (br > 18 || br < 12) ? 0.5 : 0.2;
+  const eye  = eyeScore(br);
   return Math.round(100 * (0.35 * cc + 0.35 * load + 0.15 * shap + 0.15 * eye));
 }
 function drawBVI(v) {

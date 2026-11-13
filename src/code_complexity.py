@@ -16,7 +16,22 @@ def _parse_trimmed(code_text):
     raise ValueError('no parsable code')
 
 
-def analyze_code_complexity(code_text):
+# Default = Intermediate profile (see personalized_threshold.py and thesis Table 5.1)
+DEFAULT_T = {'high_cc': 4, 'medium_cc': 2, 'high_loops': 2, 'medium_loops': 1}
+
+
+def _count_lines(code_text):
+    # ignore comments and blank lines when counting loops and conditions
+    lines = [l.split('#')[0] for l in code_text.split('\n')]
+    lines = [l for l in lines if l.strip()]
+    loops = sum(1 for l in lines if l.strip().startswith(('for ', 'while ')))
+    conds = sum(1 for l in lines if l.strip().startswith(('if ', 'elif ')))
+    funcs = sum(1 for l in lines if l.strip().startswith('def '))
+    return loops, conds, funcs
+
+
+def analyze_code_complexity(code_text, thresholds=None):
+    t = thresholds or DEFAULT_T
     try:
         blocks, code_text = _parse_trimmed(code_text)
 
@@ -34,14 +49,11 @@ def analyze_code_complexity(code_text):
         except Exception:
             halstead_effort = 0
 
-        lines = code_text.split('\n')
-        loop_count      = sum(1 for l in lines if 'for ' in l or 'while ' in l)
-        condition_count = sum(1 for l in lines if 'if ' in l or 'elif ' in l)
-        function_count  = sum(1 for l in lines if l.strip().startswith('def '))
+        loop_count, condition_count, function_count = _count_lines(code_text)
 
-        if max_cc >= 4 or loop_count >= 2 or halstead_effort > 500:
+        if max_cc >= t['high_cc'] or loop_count >= t['high_loops'] or halstead_effort > 500:
             level = 'High'
-        elif max_cc >= 2 or loop_count >= 1 or condition_count >= 2:
+        elif max_cc >= t['medium_cc'] or loop_count >= t['medium_loops'] or condition_count >= 2:
             level = 'Medium'
         else:
             level = 'Low'
@@ -58,11 +70,9 @@ def analyze_code_complexity(code_text):
 
     except Exception:
         # Not parsable at all (e.g. not Python): fall back to simple line counts
-        lines = code_text.split('\n')
-        loop_count      = sum(1 for l in lines if 'for ' in l or 'while ' in l)
-        condition_count = sum(1 for l in lines if 'if ' in l)
+        loop_count, condition_count, _ = _count_lines(code_text)
 
-        if loop_count >= 2:
+        if loop_count >= t['high_loops']:
             level = 'High'
         elif loop_count >= 1 or condition_count >= 1:
             level = 'Medium'
